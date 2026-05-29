@@ -1,0 +1,378 @@
+[
+  {
+    "localName": "2R Motos",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Aliara",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Beatriz Saad",
+    "status": "nome_exato",
+    "matchedBase44Name": "Beatriz Saad",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/beatriz-saad.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/7ceede328_be.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Camila",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Consultec",
+    "status": "nome_exato",
+    "matchedBase44Name": "Consultec",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/consultec.png",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/public/699ef0fbc0cb5a08f64c969f/c6c14838d_consultec.png",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Didi",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "DIDI Pesca",
+    "aliasUsed": "DIDI Pesca",
+    "assetPath": "/assets/client-logos/didi-pesca.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/5c5631a1c_didi.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Donnalinha",
+    "status": "nome_exato",
+    "matchedBase44Name": "Donnalinha",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/donnalinha.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/7adacfebe_donnalinha.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Dr. Lucas",
+    "status": "nome_exato",
+    "matchedBase44Name": "Dr. Lucas",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/dr-lucas.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/public/699ef0fbc0cb5a08f64c969f/af4d4b98d_drlucas.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Dra. Mayara",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Mayara Mendes",
+    "aliasUsed": "Mayara Mendes",
+    "assetPath": "/assets/client-logos/mayara-mendes.png",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/c3cf5909f_mayara.png",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Facta em Foco",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Facta Financeira",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Facta Promotora",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Facta RH",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Facta Sta. Cruz",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Fashion West",
+    "status": "nome_exato",
+    "matchedBase44Name": "Fashion West",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/fashion-west.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/30479339a_fas.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Iate Maria",
+    "status": "nome_exato",
+    "matchedBase44Name": "Iate Maria",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/iate-maria.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/33b8fc42b_iate.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Ibis",
+    "status": "nome_exato",
+    "matchedBase44Name": "Ibis",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/ibis.png",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/4057d22c9_ibis.png",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Instituto Tosi",
+    "status": "nome_exato",
+    "matchedBase44Name": "Instituto Tosi",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/instituto-tosi.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/29aee2386_tosi.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Isa Fernandes",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Isadora Fernandes",
+    "aliasUsed": "Isadora Fernandes",
+    "assetPath": "/assets/client-logos/isadora-fernandes.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/e028decec_fernandes.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "João Corban",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "JRV",
+    "status": "nome_exato",
+    "matchedBase44Name": "JRV",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/jrv.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/864127aaf_jrv.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "L&S",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "L&S Engenharia",
+    "aliasUsed": "L&S Engenharia",
+    "assetPath": "/assets/client-logos/les-engenharia.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/92168f29b_ls.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Lais Loiola",
+    "status": "nome_exato",
+    "matchedBase44Name": "Laís Loiola",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/lais-loiola.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/7c4b9c3ad_476993175_3993262937562207_1710720076157718129_n.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Luiz Augusto",
+    "status": "nome_exato",
+    "matchedBase44Name": "Luíz Augusto",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/luiz-augusto.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/c1abf07eb_247315466_1226464154501488_3993432462749903811_n.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Luvara",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Matheus Perino",
+    "status": "nome_exato",
+    "matchedBase44Name": "Matheus Perino",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/matheus-perino.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/e240b4613_matheus.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Mayra Mendes",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Monalisa",
+    "status": "nome_exato",
+    "matchedBase44Name": "Monalisa",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/monalisa.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/public/699ef0fbc0cb5a08f64c969f/c53e393c6_monalisa.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Monte Sião",
+    "status": "nome_exato",
+    "matchedBase44Name": "Monte Sião",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/monte-siao.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/c027ddc5f_monte.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Naji",
+    "status": "nome_exato",
+    "matchedBase44Name": "NAJI",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/naji.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/public/699ef0fbc0cb5a08f64c969f/fa937a913_naji.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "NOVH",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Novh Acessórios",
+    "aliasUsed": "Novh Acessorios",
+    "assetPath": "/assets/client-logos/novh-acessorios.jpeg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/22f59a7ec_e44ff332a6fecee53834ccde9c6bb2c4tplv-tiktokx-cropcenter_1080_1080.jpeg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "One Fit",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Pegatroco",
+    "status": "nome_exato",
+    "matchedBase44Name": "Pegatroco",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/pegatroco.png",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/a360292d2_logo_pegatroco_nr8jDK.png",
+    "activeInBase44": true
+  },
+  {
+    "localName": "PNO",
+    "status": "nome_exato",
+    "matchedBase44Name": "PNO",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/pno.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/bde606389_dno.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Point Our.",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Point das Esfihas - Our.",
+    "aliasUsed": "Point das Esfihas - Our.",
+    "assetPath": "/assets/client-logos/point-das-esfihas-our.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/44931d689_pointourinhos.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Point Sta.",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Point das Esfihas - STA.",
+    "aliasUsed": "Point das Esfihas - STA.",
+    "assetPath": "/assets/client-logos/point-das-esfihas-sta.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/53f882c2b_pointsantacruz.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Ponto do Aço",
+    "status": "nome_exato",
+    "matchedBase44Name": "Ponto do Aço",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/ponto-do-aco.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/0b093d757_477755924_607474682083263_3815199788061846832_n.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Provence",
+    "status": "nome_exato",
+    "matchedBase44Name": "Provence",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/provence.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/public/699ef0fbc0cb5a08f64c969f/52a5b5904_provence.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Santo Agro",
+    "status": "nome_exato",
+    "matchedBase44Name": "Santo Agro",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/santo-agro.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/559480e78_santoagro.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Santo Insumo",
+    "status": "nome_exato",
+    "matchedBase44Name": "Santo Insumo",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/santo-insumo.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/4994ec95c_278343366_669253621039469_5785456895508037383_n.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Sempre Mais",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Sempre Mais Assís",
+    "aliasUsed": "Sempre Mais Assis",
+    "assetPath": "/assets/client-logos/sempre-mais-assis.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/56c101e75_sempremais.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Special Vet",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Sta Lacrima",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Santa Lacrima",
+    "aliasUsed": "Santa Lacrima",
+    "assetPath": "/assets/client-logos/santa-lacrima.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/1189973b9_santalacrima.jpg",
+    "activeInBase44": false
+  },
+  {
+    "localName": "Star",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Star Sucos",
+    "aliasUsed": "Star Sucos",
+    "assetPath": "/assets/client-logos/star-sucos.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/adf6764d4_star.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "SuperGrana",
+    "status": "apelido_conferido",
+    "matchedBase44Name": "Super Grana",
+    "aliasUsed": "Super Grana",
+    "assetPath": "/assets/client-logos/super-grana.png",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/31c10ab9b_supergrana.png",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Tesouro",
+    "status": "sem_logo_no_base44",
+    "matchedBase44Name": null
+  },
+  {
+    "localName": "Viva",
+    "status": "nome_exato",
+    "matchedBase44Name": "Vivá",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/viva.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/fd0f9fddd_viva.jpg",
+    "activeInBase44": true
+  },
+  {
+    "localName": "Vivá",
+    "status": "nome_exato",
+    "matchedBase44Name": "Vivá",
+    "aliasUsed": null,
+    "assetPath": "/assets/client-logos/viva.jpg",
+    "sourceUrl": "https://base44.app/api/apps/699ef0fbc0cb5a08f64c969f/files/mp/public/699ef0fbc0cb5a08f64c969f/fd0f9fddd_viva.jpg",
+    "activeInBase44": true
+  }
+]
