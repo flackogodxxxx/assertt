@@ -14,9 +14,9 @@ type HeroVideoProps = {
   onAuditClick: () => void;
 };
 
-const heroVideoSrc = "./assets/Abstract_purple_pink_waves_anima…_202605281421.mp4";
-const posterSrc = "./assets/assert-tech-poster.svg";
-const logoSrc = "./assets/mkt-cropped.png";
+const heroVideoSrc = "./assets/Abstract_purple_pink_waves_anima…_202605281421.mp4?v=2";
+const posterSrc = "./assets/assert-tech-poster.svg?v=2";
+const logoSrc = "./assets/mkt-cropped.png?v=2";
 
 const trustBadges = [
   { label: "Google Partner", value: "Sinal validado" },

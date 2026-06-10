@@ -8,8 +8,8 @@ import { useDemands } from "../contexts/DemandContext";
 import { User as UserIcon } from "lucide-react";
 import { cn } from "../lib/cn";
 
-const heroVideoSrc = "/assets/Abstract_purple_pink_waves_anima%E2%80%A6_202605291239.mp4";
-const posterSrc = "/assets/assert-tech-poster.svg";
+const heroVideoSrc = "/assets/Abstract_purple_pink_waves_anima%E2%80%A6_202605291239.mp4?v=2";
+const posterSrc = "/assets/assert-tech-poster.svg?v=2";
 
 export function Login() {
   const { login, user: authUser } = useAuth();

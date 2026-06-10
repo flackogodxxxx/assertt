@@ -38,7 +38,7 @@ const links: CrmLink[] = [
   { label: "Clientes", href: "/crm/clientes", icon: Briefcase, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Calendário", href: "/crm/calendario", icon: CalendarDays, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Demandas", href: "/crm/demandas", icon: CheckSquare, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
-  { label: "IA Assert", href: "/crm/ia", icon: Brain, roles: ["Admin", "Video Maker"] },
+  { label: "IA Assert", href: "/crm/ia", icon: Brain, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Vídeos", href: "/crm/videos", icon: Video, roles: ["Admin", "Video Maker"] },
   { label: "Artes", href: "/crm/artes", icon: ImageIcon, roles: ["Admin", "Designer"] },
   { label: "Configurações", href: "/crm/settings", icon: Settings, roles: ["Admin", "Organizador", "Video Maker", "Designer"] }
