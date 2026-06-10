@@ -203,6 +203,9 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       });
     };
 
+  useEffect(() => {
+    let isMounted = true;
+
     async function loadRemote() {
       if (!user || !(await hasRemoteSession())) {
         setRemoteEnabled(false);
@@ -224,22 +227,6 @@ export function DemandProvider({ children }: { children: ReactNode }) {
 
     loadRemote();
 
-    const channel = supabase
-      .channel("crm-production-tasks-context")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "production_tasks" },
-        async () => {
-          if (!(await hasRemoteSession())) {
-            return;
-          }
-
-          const remoteDemands = await fetchRemoteDemands();
-          syncDemands(remoteDemands);
-        }
-      )
-      .subscribe();
-
     const handleStorageChange = (event: StorageEvent) => {
       if (remoteEnabled) {
         return;
@@ -260,10 +247,57 @@ export function DemandProvider({ children }: { children: ReactNode }) {
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [remoteEnabled, showNotification, user]);
+  }, [remoteEnabled, user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channelName = `crm-production-tasks-${Date.now()}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "production_tasks" },
+        async () => {
+          if (!(await hasRemoteSession())) {
+            return;
+          }
+
+          const remoteDemands = await fetchRemoteDemands();
+          setDemands((previousDemands) => {
+            remoteDemands.forEach((newDemand) => {
+              const previousDemand = previousDemands.find((demand) => demand.id === newDemand.id);
+
+              if (!previousDemand || previousDemand.status === newDemand.status) {
+                return;
+              }
+
+              if (user?.role === "Admin" && newDemand.status === "Em Revisão") {
+                const assigneeName =
+                  USERS_DB.find((assignee) => assignee.id === newDemand.assigneeIds[0])?.name || "Responsável";
+                showNotification(
+                  "Entrega para revisão",
+                  `${assigneeName} enviou o material de ${newDemand.client} para aprovação.`,
+                  "success"
+                );
+              }
+            });
+
+            persistDemands(remoteDemands);
+            return remoteDemands;
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log(`[Realtime] Subscription status:`, status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, showNotification]);
 
   const addDemand = (newDemand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt">) => {
     const demand: Demand = {
