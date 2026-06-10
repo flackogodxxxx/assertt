@@ -50,10 +50,10 @@ export function IaAssert() {
     }
   }, []);
 
-  if (!user || (user.role !== "Video Maker" && user.role !== "Admin")) {
+  if (!user) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-carbon-400">Você não tem permissão para acessar esta página.</p>
+        <p className="text-carbon-400">Você precisa estar logado para acessar esta página.</p>
       </div>
     );
   }
