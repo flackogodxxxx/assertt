@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { USERS_DB, type User, useAuth } from "./AuthContext";
 import { appendNotificationEvent, type NotificationEvent, useNotification } from "./NotificationContext";
 import { getAllClients } from "../data/clients";
@@ -175,33 +175,30 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     [demands, user]
   );
 
-  useEffect(() => {
-    let isMounted = true;
+  const syncDemands = useCallback((incomingDemands: Demand[]) => {
+    setDemands((previousDemands) => {
+      incomingDemands.forEach((newDemand) => {
+        const previousDemand = previousDemands.find((demand) => demand.id === newDemand.id);
 
-    const syncDemands = (incomingDemands: Demand[]) => {
-      setDemands((previousDemands) => {
-        incomingDemands.forEach((newDemand) => {
-          const previousDemand = previousDemands.find((demand) => demand.id === newDemand.id);
+        if (!previousDemand || previousDemand.status === newDemand.status) {
+          return;
+        }
 
-          if (!previousDemand || previousDemand.status === newDemand.status) {
-            return;
-          }
-
-          if (user?.role === "Admin" && newDemand.status === "Em Revisão") {
-            const assigneeName =
-              USERS_DB.find((assignee) => assignee.id === newDemand.assigneeIds[0])?.name || "Responsável";
-            showNotification(
-              "Entrega para revisão",
-              `${assigneeName} enviou o material de ${newDemand.client} para aprovação.`,
-              "success"
-            );
-          }
-        });
-
-        persistDemands(incomingDemands);
-        return incomingDemands;
+        if (user?.role === "Admin" && newDemand.status === "Em Revisão") {
+          const assigneeName =
+            USERS_DB.find((assignee) => assignee.id === newDemand.assigneeIds[0])?.name || "Responsável";
+          showNotification(
+            "Entrega para revisão",
+            `${assigneeName} enviou o material de ${newDemand.client} para aprovação.`,
+            "success"
+          );
+        }
       });
-    };
+
+      persistDemands(incomingDemands);
+      return incomingDemands;
+    });
+  }, [user, showNotification]);
 
   useEffect(() => {
     let isMounted = true;
@@ -249,7 +246,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       isMounted = false;
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [remoteEnabled, user]);
+  }, [remoteEnabled, user, syncDemands]);
 
   useEffect(() => {
     if (!user) return;
@@ -266,28 +263,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           }
 
           const remoteDemands = await fetchRemoteDemands();
-          setDemands((previousDemands) => {
-            remoteDemands.forEach((newDemand) => {
-              const previousDemand = previousDemands.find((demand) => demand.id === newDemand.id);
-
-              if (!previousDemand || previousDemand.status === newDemand.status) {
-                return;
-              }
-
-              if (user?.role === "Admin" && newDemand.status === "Em Revisão") {
-                const assigneeName =
-                  USERS_DB.find((assignee) => assignee.id === newDemand.assigneeIds[0])?.name || "Responsável";
-                showNotification(
-                  "Entrega para revisão",
-                  `${assigneeName} enviou o material de ${newDemand.client} para aprovação.`,
-                  "success"
-                );
-              }
-            });
-
-            persistDemands(remoteDemands);
-            return remoteDemands;
-          });
+          syncDemands(remoteDemands);
         }
       )
       .subscribe((status) => {
@@ -297,7 +273,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, showNotification]);
+  }, [user?.id, syncDemands]);
 
   const addDemand = (newDemand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt">) => {
     const demand: Demand = {
