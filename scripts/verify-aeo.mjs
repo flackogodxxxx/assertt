@@ -91,6 +91,10 @@ for (const file of sourceFiles) {
   if (/\/index\.tsx?$/.test(file)) {
     failures.push(`${file} e um barrel/index interno proibido.`);
   }
+
+  if (/import\(["']react["']\)/.test(content)) {
+    failures.push(`${file} importa React dinamicamente.`);
+  }
 }
 
 if (failures.length) {

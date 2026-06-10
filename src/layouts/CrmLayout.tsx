@@ -14,7 +14,10 @@ import {
   Users,
   Briefcase,
   Video,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  UploadCloud,
+  Brain
 } from "lucide-react";
 import { type Role, useAuth, getGlobalStatus, saveGlobalStatus, type UserStatus } from "../contexts/AuthContext";
 import { useNotification } from "../contexts/NotificationContext";
@@ -35,6 +38,7 @@ const links: CrmLink[] = [
   { label: "Clientes", href: "/crm/clientes", icon: Briefcase, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Calendário", href: "/crm/calendario", icon: CalendarDays, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Demandas", href: "/crm/demandas", icon: CheckSquare, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
+  { label: "IA Assert", href: "/crm/ia", icon: Brain, roles: ["Admin", "Video Maker"] },
   { label: "Vídeos", href: "/crm/videos", icon: Video, roles: ["Admin", "Video Maker"] },
   { label: "Artes", href: "/crm/artes", icon: ImageIcon, roles: ["Admin", "Designer"] },
   { label: "Configurações", href: "/crm/settings", icon: Settings, roles: ["Admin", "Organizador", "Video Maker", "Designer"] }
@@ -75,12 +79,14 @@ const getStatusConfig = (status: UserStatus) => {
 };
 
 function StatusSelector({ userId }: { userId: string }) {
+  const { updateProfile } = useAuth();
   const [status, setStatus] = useState<UserStatus>(() => getGlobalStatus(userId) || "ONLINE");
   const [isOpen, setIsOpen] = useState(false);
 
   const handleStatusChange = (newStatus: UserStatus) => {
     setStatus(newStatus);
     saveGlobalStatus(userId, newStatus);
+    updateProfile({ status: newStatus });
     setIsOpen(false);
   };
 
@@ -124,6 +130,7 @@ function StatusSelector({ userId }: { userId: string }) {
     </div>
   );
 }
+
 
 export function CrmLayout() {
   const { user, logout } = useAuth();

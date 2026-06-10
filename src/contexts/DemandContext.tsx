@@ -1,6 +1,12 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { USERS_DB, type User, useAuth } from "./AuthContext";
 import { appendNotificationEvent, type NotificationEvent, useNotification } from "./NotificationContext";
+import { getAllClients } from "../data/clients";
+import { mapDemandToTaskInserts, mapTaskRowToDemand, statusToTaskStatus } from "../lib/crm-mappers";
+import { supabase } from "../lib/supabase";
+import type { ProductionTaskRow } from "../lib/supabase-types";
+
+const db = supabase as any;
 
 export type DemandStatus = "A Fazer" | "Em Andamento" | "Em Revisão" | "Concluído";
 export type DemandType = "Arte" | "Vídeo" | "Ambos";
@@ -10,6 +16,7 @@ export interface Comment {
   authorId: string;
   text: string;
   createdAt: string;
+  timestamp?: string; // e.g. "01:24" for video revisions
 }
 
 export interface Demand {
@@ -27,7 +34,9 @@ export interface Demand {
   dropboxLink?: string;
   planningLink?: string;
   comments?: Comment[];
+  caption?: string;
   statusUpdatedAt?: string;
+  videoUrl?: string; // used for QC review
 }
 
 interface DemandContextType {
@@ -37,7 +46,7 @@ interface DemandContextType {
   updateDemandStatus: (id: string, status: DemandStatus, link?: string) => void;
   updateDemand: (id: string, updates: Partial<Demand>) => void;
   deleteDemand: (id: string) => void;
-  addComment: (demandId: string, text: string) => void;
+  addComment: (demandId: string, text: string, timestamp?: string) => void;
 }
 
 const DEMANDS_STORAGE_KEY = "crm_demands";
@@ -69,6 +78,71 @@ function persistDemands(demands: Demand[]) {
   localStorage.setItem(DEMANDS_STORAGE_KEY, JSON.stringify(demands));
 }
 
+function slugifyClientId(name: string) {
+  return `cli-${name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 48)}`;
+}
+
+async function hasRemoteSession() {
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data.session);
+}
+
+async function ensureRemoteClientId(clientName: string, ownerId: string) {
+  const existing = await db
+    .from("clients")
+    .select("id")
+    .eq("name", clientName)
+    .maybeSingle();
+
+  if (existing.data?.id) {
+    return existing.data.id;
+  }
+
+  const catalogClient = getAllClients().find((client) => client.name === clientName);
+  const id = slugifyClientId(clientName);
+  const { data, error } = await db
+    .from("clients")
+    .insert({
+      active_demands: 0,
+      approval_time: "",
+      id,
+      monthly_deliveries: 0,
+      name: clientName,
+      owner_id: ownerId,
+      segment: (catalogClient as any)?.segment || (catalogClient as any)?.industry || "Conteudo",
+      tier: "Fixo"
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data.id;
+}
+
+async function fetchRemoteDemands() {
+  const { data, error } = await db
+    .from("production_tasks")
+    .select("*, clients(name)")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data || []) as Array<ProductionTaskRow & { clients?: { name?: string } | null }>).map((row) =>
+    mapTaskRowToDemand(row, row.clients?.name || "Cliente sem nome")
+  );
+}
+
 function publishAssignmentNotifications(demand: Demand) {
   if (!demand.assigneeIds.length) {
     return;
@@ -94,6 +168,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
   const [demands, setDemands] = useState<Demand[]>(getInitialDemands);
   const { showNotification } = useNotification();
   const { user } = useAuth();
+  const [remoteEnabled, setRemoteEnabled] = useState(false);
 
   const visibleDemands = useMemo(
     () => demands.filter((demand) => canUserSeeDemand(demand, user)),
@@ -101,6 +176,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    let isMounted = true;
+
     const syncDemands = (incomingDemands: Demand[]) => {
       setDemands((previousDemands) => {
         incomingDemands.forEach((newDemand) => {
@@ -125,7 +202,48 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       });
     };
 
+    async function loadRemote() {
+      if (!user || !(await hasRemoteSession())) {
+        setRemoteEnabled(false);
+        return;
+      }
+
+      try {
+        const remoteDemands = await fetchRemoteDemands();
+        if (isMounted) {
+          setRemoteEnabled(true);
+          syncDemands(remoteDemands);
+        }
+      } catch {
+        if (isMounted) {
+          setRemoteEnabled(false);
+        }
+      }
+    }
+
+    loadRemote();
+
+    const channel = supabase
+      .channel("crm-production-tasks-context")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "production_tasks" },
+        async () => {
+          if (!(await hasRemoteSession())) {
+            return;
+          }
+
+          const remoteDemands = await fetchRemoteDemands();
+          syncDemands(remoteDemands);
+        }
+      )
+      .subscribe();
+
     const handleStorageChange = (event: StorageEvent) => {
+      if (remoteEnabled) {
+        return;
+      }
+
       if (event.key !== DEMANDS_STORAGE_KEY || !event.newValue) {
         return;
       }
@@ -140,9 +258,11 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     window.addEventListener("storage", handleStorageChange);
 
     return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
       window.removeEventListener("storage", handleStorageChange);
     };
-  }, [showNotification, user]);
+  }, [remoteEnabled, showNotification, user]);
 
   const addDemand = (newDemand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt">) => {
     const demand: Demand = {
@@ -162,6 +282,36 @@ export function DemandProvider({ children }: { children: ReactNode }) {
 
     publishAssignmentNotifications(demand);
     showNotification("Demanda enviada", "O responsável recebeu a notificação e o admin já pode acompanhar.", "success");
+
+    if (remoteEnabled) {
+      ensureRemoteClientId(newDemand.client, newDemand.assigneeIds[0] || user?.id || "admin-1")
+        .then((clientId) => {
+          const inserts = mapDemandToTaskInserts(newDemand, clientId);
+          return db.from("production_tasks").insert(inserts).select("id, assignee_id");
+        })
+        .then(({ data, error }) => {
+          if (error) {
+            throw error;
+          }
+
+          const notifications = (data || []).map((task: any) => ({
+            body: `Nova demanda atribuida: ${newDemand.title}`,
+            task_id: task.id,
+            target_user_id: task.assignee_id,
+            title: "Nova demanda atribuida",
+            type: "info"
+          }));
+
+          if (notifications.length) {
+            return db.from("notifications").insert(notifications);
+          }
+
+          return undefined;
+        })
+        .catch((error) => {
+          showNotification("Supabase indisponivel", error instanceof Error ? error.message : "A demanda ficou salva localmente.", "warning");
+        });
+    }
   };
 
   const updateDemandStatus = (id: string, status: DemandStatus, link?: string) => {
@@ -182,6 +332,22 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       persistDemands(updatedDemands);
       return updatedDemands;
     });
+
+    if (remoteEnabled) {
+      db
+        .from("production_tasks")
+        .update({
+          ...(link ? { deliverable: link } : {}),
+          status: statusToTaskStatus(status),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .then(({ error }: { error: Error | null }) => {
+          if (error) {
+            showNotification("Supabase indisponivel", error.message, "warning");
+          }
+        });
+    }
   };
 
   const updateDemand = (id: string, updates: Partial<Demand>) => {
@@ -192,6 +358,33 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       persistDemands(updatedDemands);
       return updatedDemands;
     });
+
+    if (remoteEnabled) {
+      const currentDemand = demands.find((demand) => demand.id === id);
+      db
+        .from("production_tasks")
+        .update({
+          checklist: {
+            caption: updates.caption ?? currentDemand?.caption,
+            comments: updates.comments ?? currentDemand?.comments,
+            description: updates.description ?? currentDemand?.description,
+            dropboxLink: updates.dropboxLink ?? currentDemand?.dropboxLink,
+            planningLink: updates.planningLink ?? currentDemand?.planningLink,
+            videoUrl: updates.videoUrl ?? currentDemand?.videoUrl
+          },
+          ...(updates.deliveryLink ? { deliverable: updates.deliveryLink } : {}),
+          ...(updates.deadline ? { due_date: updates.deadline.slice(0, 10) } : {}),
+          ...(updates.description ? { stage_note: updates.description } : {}),
+          ...(updates.title ? { title: updates.title } : {}),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .then(({ error }: { error: Error | null }) => {
+          if (error) {
+            showNotification("Supabase indisponivel", error.message, "warning");
+          }
+        });
+    }
   };
 
   const deleteDemand = (id: string) => {
@@ -200,9 +393,21 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       persistDemands(updatedDemands);
       return updatedDemands;
     });
+
+    if (remoteEnabled) {
+      db
+        .from("production_tasks")
+        .delete()
+        .eq("id", id)
+        .then(({ error }: { error: Error | null }) => {
+          if (error) {
+            showNotification("Supabase indisponivel", error.message, "warning");
+          }
+        });
+    }
   };
 
-  const addComment = (demandId: string, text: string) => {
+  const addComment = (demandId: string, text: string, timestamp?: string) => {
     if (!user) return;
     
     setDemands((previousDemands) => {
@@ -213,7 +418,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           id: `cmt-${Date.now()}`,
           authorId: user.id,
           text,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          timestamp
         };
         
         return { ...demand, comments: [...(demand.comments || []), newComment] };
@@ -222,6 +428,37 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       persistDemands(updatedDemands);
       return updatedDemands;
     });
+
+    if (remoteEnabled) {
+      const demand = demands.find((candidate) => candidate.id === demandId);
+      const newComment: Comment = {
+        id: `cmt-${Date.now()}`,
+        authorId: user.id,
+        text,
+        createdAt: new Date().toISOString(),
+        timestamp
+      };
+
+      db
+        .from("production_tasks")
+        .update({
+          checklist: {
+            caption: demand?.caption,
+            comments: [...(demand?.comments || []), newComment],
+            description: demand?.description,
+            dropboxLink: demand?.dropboxLink,
+            planningLink: demand?.planningLink,
+            videoUrl: demand?.videoUrl
+          },
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", demandId)
+        .then(({ error }: { error: Error | null }) => {
+          if (error) {
+            showNotification("Supabase indisponivel", error.message, "warning");
+          }
+        });
+    }
   };
 
   return (

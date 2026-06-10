@@ -1,6 +1,7 @@
 import { cleanup, render } from "@testing-library/react";
 import { axe } from "jest-axe";
 import { afterEach, describe, expect, it } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { App } from "../src/app";
 import { ExitIntentModal } from "../src/components/exit-intent-modal";
 
@@ -17,7 +18,11 @@ afterEach(() => {
 
 describe("acessibilidade ARIA", () => {
   it("nao apresenta violacoes axe na landing page", async () => {
-    const { container } = render(<App />);
+    const { container } = render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>
+    );
     const results = await axe(container, ariaAxeOptions);
 
     expect(results.violations).toEqual([]);

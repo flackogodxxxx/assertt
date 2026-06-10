@@ -29,28 +29,20 @@ export function Login() {
     [email]
   );
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
 
-    window.setTimeout(() => {
-      if (password !== "123456") {
-        showNotification("Autenticação não concluída", "A senha informada não corresponde ao acesso interno.", "warning");
-        setIsLoading(false);
-        return;
-      }
+    const success = await login(email, password);
 
-      const success = login(email);
+    if (!success) {
+      showNotification("Autenticação não concluída", "Verifique o e-mail e a senha informada.", "warning");
+      setIsLoading(false);
+      return;
+    }
 
-      if (!success) {
-        showNotification("Usuário não localizado", "Este e-mail não consta na operação Assert.", "warning");
-        setIsLoading(false);
-        return;
-      }
-
-      showNotification("Acesso liberado", "Sua central operacional está pronta.", "success");
-      setShowWelcome(true);
-    }, 620);
+    showNotification("Acesso liberado", "Sua central operacional está pronta.", "success");
+    setShowWelcome(true);
   };
 
   const handleEnterCrm = () => {

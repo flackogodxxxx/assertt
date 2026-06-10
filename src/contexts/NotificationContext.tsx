@@ -1,6 +1,10 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Bell, CheckCircle2, X } from "lucide-react";
 import { useAuth } from "./AuthContext";
+import { notificationRowToEvent } from "../lib/crm-mappers";
+import { supabase } from "../lib/supabase";
+
+const db = supabase as any;
 
 export type NotificationType = "info" | "success" | "warning";
 
@@ -59,6 +63,7 @@ export function appendNotificationEvent(event: NotificationEvent) {
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [events, setEvents] = useState<NotificationEvent[]>(getStoredNotificationEvents);
+  const [remoteEnabled, setRemoteEnabled] = useState(false);
   const { user } = useAuth();
 
   const removeNotification = useCallback((id: string) => {
@@ -80,6 +85,31 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const refreshEvents = useCallback(() => {
     setEvents(getStoredNotificationEvents());
   }, []);
+
+  const refreshRemoteEvents = useCallback(async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+
+    if (!user || !sessionData.session) {
+      setRemoteEnabled(false);
+      return false;
+    }
+
+    const { data, error } = await db
+      .from("notifications")
+      .select("*")
+      .or(`target_user_id.eq.${user.id},target_user_id.is.null`)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      setRemoteEnabled(false);
+      return false;
+    }
+
+    setRemoteEnabled(true);
+    setEvents((data || []).map((row: any) => notificationRowToEvent(row, row.target_user_id ? [row.target_user_id] : [user.id]) as NotificationEvent));
+    return true;
+  }, [user]);
 
   const targetedEvents = useMemo(() => {
     if (!user) {
@@ -103,6 +133,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (remoteEnabled) {
+        db
+          .from("notifications")
+          .update({ read_at: new Date().toISOString() })
+          .eq("id", id)
+          .then(() => refreshRemoteEvents());
+        return;
+      }
+
       const updatedEvents = getStoredNotificationEvents().map((event) => {
         if (event.id !== id || event.seenBy.includes(user.id)) {
           return event;
@@ -114,11 +153,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       persistEvents(updatedEvents);
       setEvents(updatedEvents);
     },
-    [user]
+    [refreshRemoteEvents, remoteEnabled, user]
   );
 
   const markAllEventsAsRead = useCallback(() => {
     if (!user) {
+      return;
+    }
+
+    if (remoteEnabled) {
+      Promise.all(
+        targetedEvents
+          .filter((event) => !event.seenBy.includes(user.id))
+          .map((event) =>
+            db
+              .from("notifications")
+              .update({ read_at: new Date().toISOString() })
+              .eq("id", event.id)
+          )
+      ).then(() => refreshRemoteEvents());
       return;
     }
 
@@ -132,14 +185,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     persistEvents(updatedEvents);
     setEvents(updatedEvents);
-  }, [user]);
+  }, [refreshRemoteEvents, remoteEnabled, targetedEvents, user]);
 
   useEffect(() => {
     if (!user) {
       return;
     }
 
+    let isMounted = true;
+
     const processTargetedEvents = () => {
+      if (remoteEnabled) {
+        return;
+      }
+
       const storedEvents = getStoredNotificationEvents();
       let hasChanges = false;
 
@@ -165,7 +224,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setEvents(hasChanges ? updatedEvents : storedEvents);
     };
 
-    processTargetedEvents();
+    refreshRemoteEvents().then((isRemote) => {
+      if (!isMounted || isRemote) {
+        return;
+      }
+
+      processTargetedEvents();
+    });
+
+    const channel = supabase
+      .channel("crm-notifications-context")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications" },
+        () => {
+          refreshRemoteEvents();
+        }
+      )
+      .subscribe();
 
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === NOTIFICATIONS_STORAGE_KEY) {
@@ -177,10 +253,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     window.addEventListener("crm-notification-events", processTargetedEvents);
 
     return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("crm-notification-events", processTargetedEvents);
     };
-  }, [showNotification, user]);
+  }, [refreshRemoteEvents, remoteEnabled, showNotification, user]);
 
   return (
     <NotificationContext.Provider

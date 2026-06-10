@@ -1,0 +1,81 @@
+{
+  "name": "Assert CRM - Event Router Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assert-crm-events",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0e3bc5bc-c49c-48a7-b272-89cc287f3b75",
+      "name": "Webhook CRM",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const input = $input.first().json;\nconst body = input.body ?? input;\nconst record = body.record ?? body.demand ?? body;\nconst oldRecord = body.old_record ?? body.oldRecord ?? null;\nconst eventType = body.type ?? body.event ?? body.action ?? 'crm.event';\nconst now = new Date().toISOString();\n\nconst statusChanged = oldRecord?.status && record?.status && oldRecord.status !== record.status;\nconst title = statusChanged\n  ? `Demanda atualizada: ${record.title ?? record.client ?? record.id}`\n  : `Evento CRM: ${record.title ?? record.client ?? record.id ?? eventType}`;\nconst message = statusChanged\n  ? `Status alterado de ${oldRecord.status} para ${record.status}.`\n  : `Evento ${eventType} recebido pelo n8n.`;\n\nreturn [{\n  json: {\n    ok: true,\n    receivedAt: now,\n    eventType,\n    record,\n    oldRecord,\n    notification: {\n      title,\n      message,\n      type: statusChanged ? 'info' : 'success',\n      targetUserId: record.assignee_id ?? record.assigneeId ?? null,\n      taskId: record.id ?? null\n    },\n    next: [\n      'Insert notification in Supabase when service-role credential is connected',\n      'Send optional ops alert when status enters Em Revisao or Concluido'\n    ]\n  }\n}];"
+      },
+      "id": "a2f0be51-91a7-4123-9c59-3cbfb911833f",
+      "name": "Normalize CRM Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "a18e5b98-5b1d-4e8c-8c51-99254c4cd844",
+      "name": "Respond CRM",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        560,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook CRM": {
+      "main": [
+        [
+          {
+            "node": "Normalize CRM Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize CRM Event": {
+      "main": [
+        [
+          {
+            "node": "Respond CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

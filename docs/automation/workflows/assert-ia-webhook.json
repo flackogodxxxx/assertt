@@ -1,0 +1,154 @@
+{
+  "name": "Assert CRM - IA Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assert-ia",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b53a23d2-a03d-48f5-9302-9b89ba7f6c52",
+      "name": "Webhook IA",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const input = $input.first().json;\nconst body = input.body ?? input;\nconst file = body.file ?? {};\nconst options = body.options ?? {};\nconst action = body.action ?? 'legenda';\nconst model = body.model ?? 'gemini-2.0-flash-lite-001';\nconst prompt = body.prompt ?? 'Generate a concise social media caption in Brazilian Portuguese. Return only valid JSON.';\nconst systemInstruction = body.systemInstruction ?? 'You are a senior Brazilian social media strategist. Return only valid JSON.';\n\nconst parts = [{ text: `${systemInstruction}\\n\\n${prompt}` }];\n\nif (file.base64 && file.mimeType) {\n  parts.push({\n    inline_data: {\n      mime_type: file.mimeType,\n      data: file.base64\n    }\n  });\n}\n\nreturn [{\n  json: {\n    action,\n    model,\n    requestMeta: {\n      platform: options.platform,\n      mimeType: file.mimeType,\n      fileName: file.name\n    },\n    geminiRequest: {\n      contents: [{ role: 'user', parts }],\n      generationConfig: {\n        temperature: 0.35,\n        responseMimeType: 'application/json'\n      }\n    }\n  }\n}];"
+      },
+      "id": "ca789deb-7f6c-4425-bef5-e3d59699b02b",
+      "name": "Prepare Gemini Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ \"https://generativelanguage.googleapis.com/v1beta/models/\" + $json.model + \":generateContent?key=COLE_SUA_GEMINI_API_KEY_AQUI\" }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiRequest }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "6c8185aa-ecc5-4cec-9ec6-92d5dd669211",
+      "name": "Call Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const response = $input.first().json;\nconst text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';\nlet parsed;\ntry {\n  parsed = typeof text === 'string' ? JSON.parse(text) : text;\n} catch (error) {\n  parsed = { caption: String(text) };\n}\n\nconst caption = parsed.caption ?? parsed.transcription ?? parsed.text ?? '';\nconst transcription = parsed.transcription ?? caption;\nconst hashtags = Array.isArray(parsed.hashtags) ? parsed.hashtags : [];\n\nreturn [{\n  json: {\n    ...parsed,\n    caption,\n    transcription,\n    hashtags,\n    ok: true\n  }\n}];"
+      },
+      "id": "becefd47-dc81-4fde-8094-97887bed9884",
+      "name": "Normalize IA Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "9a8a079a-1839-4dd2-bfdf-71b470dbda4b",
+      "name": "Respond IA",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1080,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook IA": {
+      "main": [
+        [
+          {
+            "node": "Prepare Gemini Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Gemini Request": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini": {
+      "main": [
+        [
+          {
+            "node": "Normalize IA Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize IA Response": {
+      "main": [
+        [
+          {
+            "node": "Respond IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

@@ -159,11 +159,10 @@ export function ClientLogoMarquee() {
               id="clientes-title"
               className="mt-5 max-w-4xl font-display text-[clamp(2.15rem,4vw,3.65rem)] font-bold leading-tight tracking-tight text-carbon-50"
             >
-              Uma linha viva de marcas que orbitam crescimento real.
+              Marcas que já aceleraram o crescimento com a gente.
             </h2>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-carbon-200">
-              Um carrossel contínuo com logos de clientes que confiam na Assert Tech para conectar mídia,
-              busca e conversão com direção comercial.
+              Empresas que confiam na Assert Tech para conectar tráfego, buscas e vendas reais.
             </p>
           </div>
 
@@ -173,7 +172,7 @@ export function ClientLogoMarquee() {
             onClick={() => document.getElementById("auditoria")?.scrollIntoView({ behavior: "smooth" })}
           >
             <OrbitCtaGlyph />
-            Entrar nessa órbita
+            Quero crescer como eles
             <span className="h-px w-5 rounded-full bg-carbon-50/80" aria-hidden="true" />
           </button>
         </div>

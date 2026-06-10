@@ -84,13 +84,13 @@ export function ProgressiveLeadForm() {
       <div className="relative mx-auto grid max-w-6xl min-w-0 grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] lg:gap-14">
         <div className="min-w-0" data-reveal="left">
           <p className="font-display text-sm font-bold uppercase tracking-[0.24em] text-assert-300">
-            Console de diagnóstico
+            Diagnóstico Rápido
           </p>
           <h2 id="auditoria-title" className="mt-5 font-display text-[clamp(2.35rem,4vw,3.75rem)] font-bold leading-tight tracking-tight">
-            Uma entrada curta para mapear seu motor de aquisição.
+            Descubra como está o seu motor de vendas.
           </h2>
           <p className="mt-5 text-lg leading-8 text-carbon-250">
-            O diagnóstico cruza mídia, busca orgânica e conversão para apontar onde a receita está escapando.
+            Avaliamos seus anúncios, seu SEO e sua conversão para mostrar exatamente onde você está perdendo vendas.
           </p>
           <div className="mt-8 grid gap-4">
             {["Mapa de desperdício de verba", "Gargalos de conversão", "Próximas alavancas de escala"].map(

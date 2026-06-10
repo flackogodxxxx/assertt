@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, UserCircle2, Video, PenTool, ShieldCheck, Mail, MessageSquare } from "lucide-react";
 import { USERS_DB, getGlobalAvatar, type Role, type User, getGlobalStatus, type UserStatus } from "../contexts/AuthContext";
 import { useDemands } from "../contexts/DemandContext";
+import { usePresence } from "../contexts/PresenceContext";
 import { cn } from "../lib/cn";
 
 type Status = UserStatus;
@@ -43,6 +44,7 @@ const getRoleIcon = (role: Role) => {
 export function Equipe() {
   const [searchTerm, setSearchTerm] = useState("");
   const { demands } = useDemands();
+  const { getPresenceStatus, isOnline } = usePresence();
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -81,8 +83,9 @@ export function Equipe() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredTeam.map((member, index) => {
           const avatar = getGlobalAvatar(member.email);
-          const status = getGlobalStatus(member.id) || getSimulatedStatus(member.id);
+          const status = getPresenceStatus(member.id) || getGlobalStatus(member.id) || getSimulatedStatus(member.id);
           const statusConf = getStatusConfig(status);
+          const online = isOnline(member.id);
           const activeDemandsCount = demands.filter(d => d.assigneeIds.includes(member.id) && d.status !== "Concluído").length;
 
           return (
@@ -102,12 +105,12 @@ export function Equipe() {
                       member.name.charAt(0)
                     )}
                   </div>
-                  <span className={cn("absolute bottom-0 right-0 size-4 rounded-full border-2 border-carbon-900 transition-all duration-500", statusConf.color, statusConf.glow)} title={status} />
+                  <span className={cn("absolute bottom-0 right-0 size-4 rounded-full border-2 border-carbon-900 transition-all duration-500", online ? statusConf.color : "bg-carbon-600", online && statusConf.glow)} title={online ? status : "OFFLINE"} />
                 </div>
                 
                 <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider", statusConf.border, statusConf.text, "bg-carbon-950/50")}>
-                  <span className={cn("size-1.5 rounded-full", statusConf.color, statusConf.glow)} />
-                  {status}
+                  <span className={cn("size-1.5 rounded-full", online ? statusConf.color : "bg-carbon-600", online && statusConf.glow)} />
+                  {online ? status : status === "OFFLINE" ? "OFFLINE" : `${status} · ausente`}
                 </span>
               </div>
 

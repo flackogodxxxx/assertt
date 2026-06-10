@@ -1,4 +1,4 @@
-import { type CSSProperties, type FormEvent, useMemo, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Calendar,
@@ -25,6 +25,8 @@ import { type Demand, type DemandStatus, type DemandType, type Comment, useDeman
 import { useNotification } from "../contexts/NotificationContext";
 import { getAllClients } from "../data/clients";
 import { cn } from "../lib/cn";
+import { VideoReviewPlayer } from "../components/VideoReviewPlayer";
+import { callGeminiJson, getDefaultGeminiModel } from "../lib/gemini";
 
 const columns: { id: DemandStatus; title: string; subtitle: string; tone: string }[] = [
   { id: "A Fazer", title: "Entrada", subtitle: "briefing recebido", tone: "text-carbon-150" },
@@ -91,6 +93,39 @@ function ResourceLink({
   );
 }
 
+function getReviewVideoUrl(demand: Demand) {
+  const link = demand.videoUrl || demand.deliveryLink || demand.dropboxLink;
+
+  if (!link) {
+    return undefined;
+  }
+
+  if (link.includes("dropbox.com")) {
+    return link.replace("www.dropbox.com", "dl.dropboxusercontent.com").replace("?dl=0", "");
+  }
+
+  return link;
+}
+
+async function generateDemandCaption(demand: Demand) {
+  return callGeminiJson<{ caption?: string; transcription?: string }>({
+    model: getDefaultGeminiModel(),
+    prompt: `Crie uma legenda pronta para redes sociais a partir desta demanda do CRM.
+
+Cliente: ${demand.client}
+Titulo: ${demand.title}
+Tipo: ${demand.type}
+Briefing: ${demand.description || "Sem briefing detalhado."}
+
+Responda somente JSON valido neste formato:
+{
+  "caption": "texto da legenda"
+}`,
+    systemInstruction:
+      "Voce e um social media senior de uma agencia de tecnologia. Escreva em portugues do Brasil, com tom profissional, claro e comercial. Nao inclua explicacoes fora do JSON."
+  });
+}
+
 function DemandCard({
   canApprove,
   canMove,
@@ -106,6 +141,11 @@ function DemandCard({
   onStatusChange: (id: string, status: DemandStatus) => void;
   onClick: () => void;
 }) {
+  const { user } = useAuth();
+  const { updateDemand } = useDemands();
+  const { showNotification } = useNotification();
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const assignees = demand.assigneeIds
     .map((assigneeId) => USERS_DB.find((candidate) => candidate.id === assigneeId))
     .filter(Boolean);
@@ -163,6 +203,26 @@ function DemandCard({
         <ResourceLink href={demand.dropboxLink} kind="dropbox" label="Vídeos no Dropbox" />
         <ResourceLink href={demand.planningLink} kind="canva" label="Planejamento / roteiro" />
       </div>
+
+      {demand.caption && (
+        <div className="mt-4 rounded-[0.8rem] border border-assert-300/30 bg-assert-500/10 p-3 relative overflow-hidden group/caption">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-assert-400 to-transparent opacity-50" />
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[0.65rem] font-bold uppercase tracking-widest text-assert-300 flex items-center gap-1.5"><Sparkles className="size-3" /> Legenda de IA</span>
+            <button
+              className="text-xs font-bold text-assert-300 hover:text-assert-200 transition-colors bg-assert-500/20 px-2 py-1 rounded"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(demand.caption!);
+                showNotification("Legenda copiada", "O texto foi copiado para a area de transferencia.", "success");
+              }}
+            >
+              📋 Copiar
+            </button>
+          </div>
+          <p className="text-xs text-carbon-200 whitespace-pre-wrap leading-relaxed">{demand.caption}</p>
+        </div>
+      )}
 
       <div className="mt-4 flex min-h-10 items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -239,8 +299,42 @@ function DemandCard({
         {demand.status === "Em Revisão" && !canApprove && (
           <span className="inline-flex min-h-10 items-center gap-2 rounded-card border border-accent-300/24 bg-accent-400/10 px-3 text-xs font-bold text-accent-300">
             <ShieldCheck className="size-4" aria-hidden="true" />
-            Admin revisa
+            QC revisa
           </span>
+        )}
+
+        {demand.type === "Vídeo" && user?.role === "Video Maker" && demand.status !== "Concluído" && !demand.caption && (
+          <button
+            className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-card border border-assert-300/30 bg-assert-500/10 px-3 text-xs font-bold text-assert-300 transition-all duration-300 hover:scale-105 hover:bg-assert-500/20 active:scale-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-assert-300"
+            onClick={async (e) => {
+              e.stopPropagation();
+              setIsGenerating(true);
+              try {
+                const result = await generateDemandCaption(demand);
+                const caption = result.caption || result.transcription;
+                if (!caption) {
+                  throw new Error("Gemini nao retornou legenda.");
+                }
+                updateDemand(demand.id, {
+                  caption
+                });
+                showNotification("Legenda gerada", "A legenda foi anexada a demanda.", "success");
+              } catch (error) {
+                showNotification(
+                  "IA indisponivel",
+                  error instanceof Error ? error.message : "Nao foi possivel gerar a legenda agora.",
+                  "warning"
+                );
+              } finally {
+                setIsGenerating(false);
+              }
+            }}
+            disabled={isGenerating}
+            type="button"
+          >
+            <Sparkles className={cn("size-4", isGenerating && "animate-pulse")} aria-hidden="true" />
+            {isGenerating ? "Gerando..." : "Gerar Legenda"}
+          </button>
         )}
       </div>
     </article>
@@ -356,19 +450,17 @@ export function Demandas() {
   const canCreate = user?.role === "Admin" || user?.role === "Organizador";
   const canApprove = user?.role === "Admin";
 
-  import("react").then((React) => {
-    React.useEffect(() => {
-      const handleEsc = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-          setIsModalOpen(false);
-          setSelectedDemand(null);
-          setPromptLinkFor(null);
-        }
-      };
-      window.addEventListener("keydown", handleEsc);
-      return () => window.removeEventListener("keydown", handleEsc);
-    }, []);
-  });
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsModalOpen(false);
+        setSelectedDemand(null);
+        setPromptLinkFor(null);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
 
   const allClients = useMemo(() => getAllClients(), []);
   const selectedClient = allClients.find((client) => client.name === newClient);
@@ -918,54 +1010,88 @@ export function Demandas() {
               </div>
 
               <div className="flex flex-col border-t border-carbon-800 lg:border-t-0 lg:border-l lg:pl-8 pt-6 lg:pt-0">
-                <h4 className="text-sm font-bold text-carbon-200 mb-4 flex items-center gap-2">
-                  <MessageSquare className="size-4" /> Comentários
-                </h4>
-                
-                <div className="flex-1 overflow-y-auto max-h-[400px] space-y-4 mb-4 pr-2">
-                  {selectedDemand.comments && selectedDemand.comments.length > 0 ? (
-                    selectedDemand.comments.map(comment => {
-                      const author = USERS_DB.find(u => u.id === comment.authorId);
-                      return (
-                        <div key={comment.id} className="bg-carbon-950/60 p-3 rounded-card border border-carbon-800/80">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-bold text-carbon-100">{author?.name || "Usuário"}</span>
-                            <span className="text-[0.65rem] text-carbon-500">{formatDate(comment.createdAt)}</span>
-                          </div>
-                          <p className="text-sm text-carbon-300">{comment.text}</p>
-                        </div>
-                      )
-                    })
+                {selectedDemand.status === "Em Revisão" && selectedDemand.type === "Vídeo" && (user.role === "Admin" || user.role === "Organizador") ? (
+                  getReviewVideoUrl(selectedDemand) ? (
+                    <VideoReviewPlayer
+                      videoUrl={getReviewVideoUrl(selectedDemand)!}
+                      comments={selectedDemand.comments || []}
+                      onAddComment={(text, timestamp) => {
+                        addComment(selectedDemand.id, text, timestamp);
+                        setSelectedDemand(prev => prev ? {
+                          ...prev,
+                          comments: [...(prev.comments || []), { id: `tmp-${Date.now()}`, authorId: user.id, text, createdAt: new Date().toISOString(), timestamp }]
+                        } : null);
+                      }}
+                      onSendCorrections={() => {
+                        updateDemandStatus(selectedDemand.id, "Em Andamento");
+                        setSelectedDemand(null);
+                        showNotification("Correções enviadas", "O Video Maker foi notificado sobre os ajustes e a demanda voltou para produção.", "info");
+                      }}
+                    />
                   ) : (
-                    <p className="text-sm text-carbon-500 italic text-center py-8">Nenhum comentário ainda. Inicie a conversa!</p>
-                  )}
-                </div>
+                    <div className="rounded-card border border-assert-300/30 bg-assert-500/10 p-5 text-sm text-assert-200">
+                      Nenhum link de vídeo foi anexado a esta demanda. Envie o link de entrega ou Dropbox antes da revisão com minutagem.
+                    </div>
+                  )
+                ) : (
+                  <>
+                    <h4 className="text-sm font-bold text-carbon-200 mb-4 flex items-center gap-2">
+                      <MessageSquare className="size-4" /> Comentários
+                    </h4>
+                    
+                    <div className="flex-1 overflow-y-auto max-h-[400px] space-y-4 mb-4 pr-2">
+                      {selectedDemand.comments && selectedDemand.comments.length > 0 ? (
+                        selectedDemand.comments.map(comment => {
+                          const author = USERS_DB.find(u => u.id === comment.authorId);
+                          return (
+                            <div key={comment.id} className="bg-carbon-950/60 p-3 rounded-card border border-carbon-800/80">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs font-bold text-carbon-100">{author?.name || "Usuário"}</span>
+                                <div className="flex items-center gap-2">
+                                  {comment.timestamp && (
+                                    <span className="text-[0.65rem] font-mono bg-assert-500/20 text-assert-300 px-1 rounded border border-assert-300/30">
+                                      {comment.timestamp}
+                                    </span>
+                                  )}
+                                  <span className="text-[0.65rem] text-carbon-500">{formatDate(comment.createdAt)}</span>
+                                </div>
+                              </div>
+                              <p className="text-sm text-carbon-300">{comment.text}</p>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <p className="text-sm text-carbon-500 italic text-center py-8">Nenhum comentário ainda. Inicie a conversa!</p>
+                      )}
+                    </div>
 
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!newComment.trim()) return;
-                    addComment(selectedDemand.id, newComment);
-                    setNewComment("");
-                    // Update local state so modal updates immediately
-                    setSelectedDemand(prev => prev ? {
-                      ...prev,
-                      comments: [...(prev.comments || []), { id: `tmp-${Date.now()}`, authorId: user.id, text: newComment, createdAt: new Date().toISOString() }]
-                    } : null);
-                  }}
-                  className="mt-auto relative"
-                >
-                  <input
-                    type="text"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Adicionar comentário..."
-                    className="w-full min-h-12 rounded-card border border-glass-stroke bg-carbon-950/66 pl-4 pr-12 text-sm text-carbon-50 outline-none transition-all focus:border-assert-300"
-                  />
-                  <button type="submit" disabled={!newComment.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-assert-300 hover:text-assert-400 disabled:opacity-50">
-                    <Send className="size-4" />
-                  </button>
-                </form>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!newComment.trim()) return;
+                        addComment(selectedDemand.id, newComment);
+                        setNewComment("");
+                        // Update local state so modal updates immediately
+                        setSelectedDemand(prev => prev ? {
+                          ...prev,
+                          comments: [...(prev.comments || []), { id: `tmp-${Date.now()}`, authorId: user.id, text: newComment, createdAt: new Date().toISOString() }]
+                        } : null);
+                      }}
+                      className="mt-auto relative"
+                    >
+                      <input
+                        type="text"
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Adicionar comentário..."
+                        className="w-full min-h-12 rounded-card border border-glass-stroke bg-carbon-950/66 pl-4 pr-12 text-sm text-carbon-50 outline-none transition-all focus:border-assert-300"
+                      />
+                      <button type="submit" disabled={!newComment.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-assert-300 hover:text-assert-400 disabled:opacity-50">
+                        <Send className="size-4" />
+                      </button>
+                    </form>
+                  </>
+                )}
               </div>
             </div>
           </div>

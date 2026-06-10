@@ -232,18 +232,17 @@ export function HeroVideo({ onAuditClick }: HeroVideoProps) {
               className="mt-6 max-w-[780px] break-words font-display text-[clamp(3rem,6vw,5.35rem)] font-bold leading-[0.91] tracking-tight text-carbon-50"
             >
               <span className="block text-transparent bg-clip-text bg-[linear-gradient(110deg,var(--color-carbon-50),var(--color-assert-300)_48%,var(--color-accent-300))] text-neon">
-                Receita
+                Marketing
               </span>
               <span className="block text-carbon-50">
-                que ganha <span className="headline-orbit-word">órbita.</span>
+                que gera <span className="headline-orbit-word">receita real.</span>
               </span>
               <span className="mt-4 block max-w-3xl text-[0.43em] leading-[1.06] text-carbon-150">
-                Marketing orientado por margem, demanda e conversão real.
+                Foco em vendas, demanda qualificada e margem de lucro.
               </span>
             </h1>
             <p className="mt-5 max-w-2xl text-[clamp(1.05rem,1.45vw,1.28rem)] font-medium leading-[1.48] text-carbon-100">
-              A Assert Tech conecta mídia paga, SEO e CRO em um sistema de crescimento que transforma atenção em
-              pipeline, clientes e escala previsível.
+              Nós unimos mídia paga, SEO e testes de conversão (CRO) para transformar cliques em clientes e gerar um crescimento que você pode prever.
             </p>
 
             <div className="mt-5 grid gap-3 rounded-card border border-glass-stroke bg-carbon-950/38 p-3 shadow-panel backdrop-blur-xl min-[560px]:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
@@ -256,7 +255,7 @@ export function HeroVideo({ onAuditClick }: HeroVideoProps) {
                 className="inline-flex min-h-16 w-full min-w-0 items-center justify-center gap-2 rounded-card border border-glass-stroke bg-carbon-950/44 px-5 text-center text-base font-semibold text-carbon-100 shadow-panel backdrop-blur-xl transition-all duration-300 hover:scale-105 hover:border-accent-300 hover:text-carbon-50 hover:shadow-lg hover:shadow-primary/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-carbon-950 [&_svg]:shrink-0"
                 onClick={() => document.getElementById("servicos")?.scrollIntoView({ behavior: "smooth" })}
               >
-                Conhecer nossa operação
+                Conheça como trabalhamos
                 <ChevronRight className="size-5" aria-hidden="true" />
               </button>
             </div>
@@ -302,7 +301,7 @@ export function HeroVideo({ onAuditClick }: HeroVideoProps) {
                   Radar de escala
                 </p>
                 <p className="mt-2 text-sm font-semibold leading-5 text-carbon-100">
-                  Sinais de tráfego qualificado, eficiência de CAC e taxas de conversão integrados no seu funil.
+                  Visão clara do seu tráfego, do custo de aquisição (CAC) e de como os leads viram clientes.
                 </p>
               </div>
             </div>

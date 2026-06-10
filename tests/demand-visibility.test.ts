@@ -44,7 +44,7 @@ describe("visibilidade de demandas", () => {
     expect(canUserSeeDemand(demand, assignee)).toBe(true);
   });
 
-  it("nao mostra a demanda para o organizador que nao foi atribuido", () => {
-    expect(canUserSeeDemand(demand, organizer)).toBe(false);
+  it("permite que organizadores acompanhem demandas da operacao", () => {
+    expect(canUserSeeDemand(demand, organizer)).toBe(true);
   });
 });

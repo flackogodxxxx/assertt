@@ -6,6 +6,7 @@ import "./styles/tailwind.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DemandProvider } from "./contexts/DemandContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import { PresenceProvider } from "./contexts/PresenceContext";
 import { CrmLayout } from "./layouts/CrmLayout";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
@@ -17,7 +18,7 @@ import { Equipe } from "./pages/Equipe";
 import { Unauthorized } from "./pages/Unauthorized";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./ErrorBoundary";
-
+import { IaAssert } from "./pages/IaAssert";
 import { Settings } from "./pages/Settings";
 
 if ("scrollRestoration" in history) {
@@ -40,10 +41,11 @@ createRoot(rootElement).render(
   <StrictMode>
     <ErrorBoundary>
       <AuthProvider>
-        <NotificationProvider>
-          <DemandProvider>
-            <BrowserRouter>
-              <Routes>
+        <PresenceProvider>
+          <NotificationProvider>
+            <DemandProvider>
+              <BrowserRouter>
+                <Routes>
                 {/* Rota Pública da Landing Page */}
                 <Route path="/" element={<App />} />
                 
@@ -61,15 +63,17 @@ createRoot(rootElement).render(
                     <Route path="equipe" element={<Equipe />} />
                     <Route path="unauthorized" element={<Unauthorized />} />
                     {/* Rotas genéricas de preenchimento */}
+                    <Route path="ia" element={<IaAssert />} />
                     <Route path="videos" element={<Demandas />} />
                     <Route path="artes" element={<Demandas />} />
                     <Route path="settings" element={<Settings />} />
                   </Route>
                 </Route>
-              </Routes>
-            </BrowserRouter>
-          </DemandProvider>
-        </NotificationProvider>
+                </Routes>
+              </BrowserRouter>
+            </DemandProvider>
+          </NotificationProvider>
+        </PresenceProvider>
       </AuthProvider>
     </ErrorBoundary>
   </StrictMode>

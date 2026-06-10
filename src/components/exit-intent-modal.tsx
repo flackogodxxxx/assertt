@@ -68,11 +68,10 @@ export function ExitIntentModal({ initialOpen = false, disableExitIntent = false
             <Gift className="size-8 sm:size-9" aria-hidden="true" />
           </div>
           <DialogTitle className="pr-12 font-display text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-tight">
-            Antes de sair, leve uma Auditoria de Marketing Gratuita.
+            Espere! Não saia sem sua Auditoria de Marketing Gratuita.
           </DialogTitle>
           <DialogDescription className="mt-4 text-lg leading-8 text-carbon-250">
-            Receba um diagnóstico objetivo sobre desperdício de verba, gargalos de conversão e
-            oportunidades de escala para sua operação.
+            Descubra onde você está gastando dinheiro à toa e encontre oportunidades reais para vender mais.
           </DialogDescription>
 
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

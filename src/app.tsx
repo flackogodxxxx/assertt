@@ -26,17 +26,17 @@ import { usePageMotion } from "./hooks/use-page-motion";
 const method = [
   {
     title: "Diagnosticar",
-    description: "Mapeamos desperdício de mídia, intenção de busca e atritos na jornada.",
+    description: "Encontramos onde você perde dinheiro em mídia, nas buscas e durante a venda.",
     Icon: Radar
   },
   {
     title: "Projetar",
-    description: "Transformamos dados em hipóteses, páginas, campanhas e mensuração limpa.",
+    description: "Transformamos os dados em páginas e campanhas que trazem resultados.",
     Icon: Workflow
   },
   {
     title: "Escalar",
-    description: "Aumentamos investimento apenas onde CAC, conversão e qualidade sustentam ROI.",
+    description: "Aceleramos o investimento só onde o custo por cliente e a conversão garantem lucro.",
     Icon: Rocket
   }
 ];
@@ -45,21 +45,21 @@ const services = [
   {
     title: "Tráfego Pago",
     description:
-      "Campanhas orientadas a pipeline, com leitura diária de verba, CAC e qualidade dos leads.",
+      "Campanhas voltadas para vendas reais, otimizando seu orçamento todos os dias.",
     Icon: Target,
     checks: ["Budget por margem", "Criativos por intenção", "Rotina de otimização"]
   },
   {
-    title: "SEO e AEO",
+    title: "SEO e IA",
     description:
-      "Arquitetura técnica e conteúdo para aparecer em buscas tradicionais e respostas de IA.",
+      "Estrutura técnica e conteúdo para sua marca ser a melhor resposta no Google e na IA.",
     Icon: Search,
     checks: ["Clusters por receita", "Base técnica auditável", "Conteúdo citável"]
   },
   {
     title: "CRO",
     description:
-      "Testes e ajustes de jornada para transformar mais visitas em oportunidades comerciais reais.",
+      "Testes no seu site para transformar mais visitantes em oportunidades reais de vendas.",
     Icon: LineChart,
     checks: ["Hipóteses priorizadas", "Mensuração limpa", "Funil sem atrito"]
   }
@@ -72,9 +72,9 @@ const proof = [
 ];
 
 const operatingPrinciples = [
-  "A verba só sobe quando o sinal econômico aparece.",
-  "Landing pages, anúncios e CRM são tratados como um sistema único.",
-  "Relatórios mostram decisões, não um amontoado de gráficos."
+  "O investimento só aumenta quando o retorno financeiro é claro.",
+  "Seus anúncios, páginas e CRM passam a funcionar como um único sistema.",
+  "Nossos relatórios mostram decisões, e não apenas um monte de gráficos."
 ];
 
 const revealDelay = (index: number) => ({ "--reveal-delay": `${index * 90}ms` }) as CSSProperties;
@@ -111,13 +111,13 @@ export function App() {
                   id="metodo-title"
                   className="mt-5 max-w-xl font-display text-[clamp(2.35rem,4vw,3.8rem)] font-bold leading-tight tracking-tight text-carbon-50"
                 >
-                  Uma metodologia de escala previsível para operações que exigem eficiência.
+                  Um método previsível para escalar empresas que precisam de eficiência real.
                 </h2>
               </div>
               <div className="grid min-w-0 gap-5 text-lg leading-8 text-carbon-200" data-reveal="right">
                 <p>
-                  Nossa metodologia foi desenhada para empresas que buscam superar o teto de crescimento tradicional.
-                  Integramos diagnóstico analítico, experimentação ágil e execução de alta performance para acelerar o seu pipeline de receita de ponta a ponta.
+                  Criamos esse método para empresas que precisam ir além do crescimento comum.
+                  Unimos análise de dados, testes rápidos e execução com foco em vendas para acelerar sua receita do início ao fim.
                 </p>
                 <div className="grid gap-4">
                   {operatingPrinciples.map((item, index) => (
@@ -164,7 +164,7 @@ export function App() {
                   id="servicos-title"
                   className="mt-5 max-w-3xl font-display text-[clamp(2.35rem,4vw,3.75rem)] font-bold leading-tight tracking-tight text-carbon-50"
                 >
-                  Três pilares de aquisição integrados para maximizar o seu retorno.
+                  Nossos três serviços principais, trabalhando juntos para maximizar seu lucro.
                 </h2>
               </div>
               <button
@@ -254,7 +254,7 @@ export function App() {
                 id="prova-title"
                 className="mt-5 font-display text-[clamp(2.35rem,4vw,3.75rem)] font-bold leading-tight tracking-tight text-carbon-50"
               >
-                Crescimento sustentável baseado em dados reais, não em intuição.
+                Crescimento seguro, baseado em dados reais, não em achismos.
               </h2>
               <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,10.5rem),1fr))] gap-5 lg:gap-6">
                 {proof.map(({ value, label, Icon }, index) => (
@@ -269,7 +269,7 @@ export function App() {
               </div>
               <div className="mt-8 inline-flex max-w-full items-center gap-3 rounded-card border border-glass-stroke bg-carbon-900/70 px-5 py-4 text-carbon-100 shadow-panel backdrop-blur-xl">
                 <ClipboardCheck className="size-5 shrink-0 text-accent-300 sm:size-6" aria-hidden="true" />
-                <span className="text-sm font-semibold">Playbook de escala validado por números.</span>
+                <span className="text-sm font-semibold">Um modelo de crescimento comprovado na prática.</span>
               </div>
             </div>
           </div>
