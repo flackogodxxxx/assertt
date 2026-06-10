@@ -198,6 +198,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           }
         });
 
+        persistDemands(incomingDemands);
         return incomingDemands;
       });
     };

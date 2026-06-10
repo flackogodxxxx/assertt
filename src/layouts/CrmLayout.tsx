@@ -79,12 +79,12 @@ const getStatusConfig = (status: UserStatus) => {
 };
 
 function StatusSelector({ userId }: { userId: string }) {
-  const { updateProfile } = useAuth();
-  const [status, setStatus] = useState<UserStatus>(() => getGlobalStatus(userId) || "ONLINE");
+  const { user, updateProfile } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
+  const status = user?.status || getGlobalStatus(userId) || "ONLINE";
+
   const handleStatusChange = (newStatus: UserStatus) => {
-    setStatus(newStatus);
     saveGlobalStatus(userId, newStatus);
     updateProfile({ status: newStatus });
     setIsOpen(false);

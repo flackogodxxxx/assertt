@@ -142,13 +142,15 @@ function DemandCard({
   onClick: () => void;
 }) {
   const { user } = useAuth();
-  const { updateDemand } = useDemands();
+  const { updateDemand, deleteDemand } = useDemands();
   const { showNotification } = useNotification();
   const [isGenerating, setIsGenerating] = useState(false);
 
   const assignees = demand.assigneeIds
     .map((assigneeId) => USERS_DB.find((candidate) => candidate.id === assigneeId))
     .filter(Boolean);
+
+  const canDelete = user?.role === "Admin" || user?.role === "Organizador";
 
   return (
     <article
@@ -171,17 +173,34 @@ function DemandCard({
         <span className="rounded-full border border-assert-300/28 bg-assert-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-assert-300">
           {demand.type}
         </span>
-        {demand.deliveryLink && (
-          <a
-            aria-label="Abrir entrega"
-            className="grid size-9 shrink-0 place-items-center rounded-card border border-accent-300/30 bg-accent-400/10 text-accent-300 transition-all duration-300 hover:scale-105 hover:bg-accent-400/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300"
-            href={demand.deliveryLink}
-            rel="noreferrer"
-            target="_blank"
-          >
-            <ExternalLink className="size-4" aria-hidden="true" />
-          </a>
-        )}
+        <div className="flex items-center gap-2">
+          {canDelete && (
+            <button
+              aria-label="Apagar demanda"
+              className="grid size-9 shrink-0 place-items-center rounded-card border border-signal-300/30 bg-signal-400/10 text-signal-300 transition-all duration-300 hover:scale-105 hover:bg-signal-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-300"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm("Tem certeza que deseja excluir esta demanda?")) {
+                  deleteDemand(demand.id);
+                }
+              }}
+              type="button"
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+            </button>
+          )}
+          {demand.deliveryLink && (
+            <a
+              aria-label="Abrir entrega"
+              className="grid size-9 shrink-0 place-items-center rounded-card border border-accent-300/30 bg-accent-400/10 text-accent-300 transition-all duration-300 hover:scale-105 hover:bg-accent-400/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300"
+              href={demand.deliveryLink}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink className="size-4" aria-hidden="true" />
+            </a>
+          )}
+        </div>
       </div>
 
       <h4 className="line-clamp-2 min-h-[3.2rem] text-lg font-bold leading-snug text-carbon-50">{demand.title}</h4>
@@ -343,6 +362,8 @@ function DemandCard({
 
 function MyTasksView({ demands, onStatusChange, onClick }: { demands: Demand[], onStatusChange: (id: string, s: DemandStatus) => void, onClick: (d: Demand) => void }) {
   const { user } = useAuth();
+  const { deleteDemand } = useDemands();
+  const canDelete = user?.role === "Admin" || user?.role === "Organizador";
   
   // Foca nas demandas não concluídas, priorizando as atribuídas ao usuário
   const myDemands = useMemo(() => {
@@ -378,7 +399,24 @@ function MyTasksView({ demands, onStatusChange, onClick }: { demands: Demand[], 
             <span className={cn("text-[0.65rem] font-bold uppercase tracking-widest px-2 py-1 rounded-sm", demand.status === "A Fazer" ? "bg-carbon-800 text-carbon-300" : demand.status === "Em Andamento" ? "bg-accent-500/20 text-accent-300" : "bg-signal-400/20 text-signal-300")}>
               {demand.status}
             </span>
-            {demand.deadline && <span className="text-[0.65rem] font-bold text-assert-300 bg-assert-500/10 px-2 py-1 rounded-sm">{formatDate(demand.deadline)}</span>}
+            <div className="flex items-center gap-2">
+              {canDelete && (
+                <button
+                  aria-label="Apagar demanda"
+                  className="grid size-7 shrink-0 place-items-center rounded-card border border-signal-300/30 bg-signal-400/10 text-signal-300 transition-all duration-300 hover:scale-105 hover:bg-signal-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-300"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm("Tem certeza que deseja excluir esta demanda?")) {
+                      deleteDemand(demand.id);
+                    }
+                  }}
+                  type="button"
+                >
+                  <Trash2 className="size-3" aria-hidden="true" />
+                </button>
+              )}
+              {demand.deadline && <span className="text-[0.65rem] font-bold text-assert-300 bg-assert-500/10 px-2 py-1 rounded-sm">{formatDate(demand.deadline)}</span>}
+            </div>
           </div>
           <h4 className="text-lg font-bold text-carbon-50 mb-1">{demand.title}</h4>
           <p className="text-xs text-carbon-300 font-semibold mb-4">{demand.client}</p>

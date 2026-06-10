@@ -44,7 +44,7 @@ const getRoleIcon = (role: Role) => {
 export function Equipe() {
   const [searchTerm, setSearchTerm] = useState("");
   const { demands } = useDemands();
-  const { getPresenceStatus, isOnline } = usePresence();
+  const { getPresenceStatus, isOnline, onlineUserIds } = usePresence();
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -83,7 +83,16 @@ export function Equipe() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredTeam.map((member, index) => {
           const avatar = getGlobalAvatar(member.email);
-          const status = getPresenceStatus(member.id) || getGlobalStatus(member.id) || getSimulatedStatus(member.id);
+          
+          let status: UserStatus;
+          const isRealtimeActive = onlineUserIds.length > 0;
+          
+          if (isRealtimeActive) {
+            status = isOnline(member.id) ? (getPresenceStatus(member.id) || "ONLINE") : "OFFLINE";
+          } else {
+            status = getGlobalStatus(member.id) || getSimulatedStatus(member.id);
+          }
+          
           const statusConf = getStatusConfig(status);
           const activeDemandsCount = demands.filter(d => d.assigneeIds.includes(member.id) && d.status !== "Concluído").length;
 
