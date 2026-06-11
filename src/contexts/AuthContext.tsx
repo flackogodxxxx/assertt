@@ -48,6 +48,34 @@ export function isLocalAuthFallbackAllowed(env = import.meta.env) {
   return Boolean(env.DEV && !env.PROD);
 }
 
+export function parseStoredLocalAuthUser(
+  savedUser: string | null,
+  env = import.meta.env,
+): User | null {
+  if (!savedUser || !isLocalAuthFallbackAllowed(env)) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(savedUser) as Partial<User>;
+    const validRoles: Role[] = ["Admin", "Organizador", "Video Maker", "Designer"];
+
+    if (
+      typeof parsed.id === "string" &&
+      typeof parsed.name === "string" &&
+      typeof parsed.email === "string" &&
+      parsed.role &&
+      validRoles.includes(parsed.role)
+    ) {
+      return parsed as User;
+    }
+  } catch {
+    // Invalid development-only session data is ignored.
+  }
+
+  return null;
+}
+
 export function getGlobalAvatar(identifier: string): string | undefined {
   if (!identifier) return undefined;
   try {
@@ -112,11 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const savedUser = localStorage.getItem("crm_user");
-      if (savedUser && isMounted) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch (e) {}
+      const parsedLocalUser = parseStoredLocalAuthUser(localStorage.getItem("crm_user"));
+      if (parsedLocalUser && isMounted) {
+        setUser(parsedLocalUser);
+      } else {
+        localStorage.removeItem("crm_user");
+        if (isMounted) {
+          setUser(null);
+        }
       }
 
       if (isMounted) {
@@ -128,6 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
+        setUser(null);
+        localStorage.removeItem("crm_user");
         return;
       }
 
@@ -139,6 +172,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then(({ data: profile }: { data: any }) => {
           if (profile) {
             setUser(mapProfileToUser(profile));
+          } else {
+            setUser(null);
+            localStorage.removeItem("crm_user");
           }
         });
     });
