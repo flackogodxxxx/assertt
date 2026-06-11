@@ -1,4 +1,5 @@
 import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Calendar,
@@ -1002,7 +1003,7 @@ export function Demandas() {
         </div>
       )}
 
-      {promptDemandForReview && (
+      {promptDemandForReview && createPortal(
         <div 
           className="fixed inset-0 grid place-items-center overflow-y-auto bg-carbon-950/82 p-4 backdrop-blur-xl animate-in fade-in"
           style={{ zIndex: 9999 }}
@@ -1156,9 +1157,9 @@ export function Demandas() {
               </Button>
             </div>
           </form>
-        </div>
+        </div>,
+        document.body
       )}
-
       {selectedDemand?.status === "Em Revisão" && (
         <DemandReviewWorkspace
           currentUser={user}
