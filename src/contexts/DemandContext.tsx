@@ -11,6 +11,7 @@ import {
 import { formatDemandScope } from "../lib/demand-scope";
 import { supabase } from "../lib/supabase";
 import type { ProductionTaskRow } from "../lib/supabase-types";
+import type { WorkflowStatus } from "../features/demands/workflow";
 
 const db = supabase as any;
 
@@ -67,6 +68,14 @@ export interface Demand {
   videoUrl?: string; // used for QC review
   deliveries?: DeliveryItem[];
   approvedPieces?: number[];
+  archivedAt?: string;
+  blockedCategory?: string;
+  blockedFromStatus?: WorkflowStatus;
+  blockedReason?: string;
+  reviewerId?: string;
+  stageEnteredAt?: string;
+  stageSlaDueAt?: string;
+  workflowStatus?: WorkflowStatus;
 }
 
 interface DemandContextType {
@@ -298,27 +307,38 @@ export function DemandProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user?.id) return;
 
-    const channelName = `crm-production-tasks`;
+    const refreshRemoteDemands = async () => {
+      try {
+        if (!(await hasRemoteSession())) return;
+        const remoteDemands = await fetchRemoteDemands();
+        syncDemandsRef.current(remoteDemands);
+      } catch {
+        return;
+      }
+    };
+    const resync = () => {
+      if (navigator.onLine && document.visibilityState === "visible") {
+        void refreshRemoteDemands();
+      }
+    };
     const channel = supabase
-      .channel(channelName)
+      .channel(`crm-production-tasks:${user.id}:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "production_tasks" },
-        async () => {
-          if (!(await hasRemoteSession())) {
-            return;
-          }
-
-          const remoteDemands = await fetchRemoteDemands();
-          syncDemandsRef.current(remoteDemands);
-        }
+        () => void refreshRemoteDemands()
       )
-      .subscribe((status) => {
-        console.log(`[Realtime] Subscription status:`, status);
-      });
+      .subscribe();
+
+    window.addEventListener("focus", resync);
+    window.addEventListener("online", resync);
+    document.addEventListener("visibilitychange", resync);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.removeEventListener("focus", resync);
+      window.removeEventListener("online", resync);
+      document.removeEventListener("visibilitychange", resync);
+      void supabase.removeChannel(channel);
     };
   }, [user?.id]);
 
@@ -328,6 +348,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       id: `dem-${Date.now()}`,
       createdAt: new Date().toISOString(),
       status: "A Fazer",
+      workflowStatus: "planned",
       statusUpdatedAt: new Date().toISOString(),
       comments: [],
       deliveries: []
@@ -347,27 +368,14 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     if (remoteEnabled) {
       ensureRemoteClientId(newDemand.client, newDemand.assigneeIds[0] || user?.id || "admin-1")
         .then((clientId) => {
-          const inserts = mapDemandToTaskInserts(newDemand, clientId);
+          const inserts = mapDemandToTaskInserts(newDemand, clientId, demand.id);
           return db.from("production_tasks").insert(inserts).select("id, assignee_id");
         })
         .then(({ data, error }) => {
           if (error) {
             throw error;
           }
-
-          const notifications = (data || []).map((task: any) => ({
-            body: `[${newDemand.client}] ${newDemand.title} acaba de cair na sua mesa. (${formatDemandScope(newDemand.pieceCount || 1, newDemand.type)})`,
-            task_id: task.id,
-            target_user_id: task.assignee_id,
-            title: "🚀 Nova missão na operação",
-            type: "info"
-          }));
-
-          if (notifications.length) {
-            return db.from("notifications").insert(notifications);
-          }
-
-          return undefined;
+          return data;
         })
         .catch((error) => {
           showNotification("Supabase indisponivel", error instanceof Error ? error.message : "A demanda ficou salva localmente.", "warning");

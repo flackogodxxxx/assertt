@@ -57,7 +57,11 @@ export async function playNotificationTone(context?: AudioContext) {
     return false;
   }
 }
-export async function showNativeNotification(title: string, body: string) {
+export async function showNativeNotification(
+  title: string,
+  body: string,
+  demandId?: string
+) {
   if (typeof window === "undefined" || !("Notification" in window)) {
     return;
   }
@@ -65,7 +69,9 @@ export async function showNativeNotification(title: string, body: string) {
   const workOsTitle = `WorkOS • ${title}`;
   const options: NotificationOptions = {
     body,
-    icon: '/assets/mkt-cropped.png'
+    data: { url: demandId ? `/crm/demandas/${demandId}` : "/crm" },
+    icon: "/assets/mkt-cropped.png",
+    tag: demandId ? `workos-demand-${demandId}` : undefined
   };
 
   const spawnNotification = () => {
@@ -73,6 +79,10 @@ export async function showNativeNotification(title: string, body: string) {
       const n = new Notification(workOsTitle, options);
       n.onclick = () => {
         window.focus();
+        const targetUrl = (options.data as { url?: string } | undefined)?.url;
+        if (targetUrl) {
+          window.location.assign(targetUrl);
+        }
         n.close();
       };
     } catch (err) {
@@ -90,11 +100,6 @@ export async function showNativeNotification(title: string, body: string) {
   try {
     if (Notification.permission === "granted") {
       spawnNotification();
-    } else if (Notification.permission !== "denied") {
-      const permission = await Notification.requestPermission();
-      if (permission === "granted") {
-        spawnNotification();
-      }
     }
   } catch (error) {
     console.error("Failed to request native notification:", error);

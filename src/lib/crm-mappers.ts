@@ -7,6 +7,7 @@ import type {
   ProductionTaskRow,
   ProfileRow
 } from "./supabase-types";
+import type { WorkflowStatus } from "../features/demands/workflow";
 
 type TaskChecklist = {
   comments?: Demand["comments"];
@@ -19,10 +20,11 @@ type TaskChecklist = {
   videoUrl?: string;
   deliveries?: import("../contexts/DemandContext").DeliveryItem[];
   approvedPieces?: number[];
+  assigneeIds?: string[];
 };
 
 const statusByDemand: Record<DemandStatus, string> = {
-  "A Fazer": "todo",
+  "A Fazer": "planned",
   "Concluído": "delivered",
   "Em Andamento": "production",
   "Em Revisão": "review"
@@ -31,12 +33,27 @@ const statusByDemand: Record<DemandStatus, string> = {
 const demandStatusByTask: Record<string, DemandStatus> = {
   adjustments: "Em Revisão",
   approval: "Em Revisão",
-  approved: "Concluído",
+  approved: "Em Revisão",
   blocked: "Em Andamento",
   delivered: "Concluído",
   production: "Em Andamento",
   review: "Em Revisão",
+  planned: "A Fazer",
+  draft: "A Fazer",
   todo: "A Fazer"
+};
+
+const workflowStatusByTask: Record<string, WorkflowStatus> = {
+  adjustments: "adjustments",
+  approval: "review",
+  approved: "approved",
+  blocked: "blocked",
+  delivered: "delivered",
+  draft: "draft",
+  planned: "planned",
+  production: "production",
+  review: "review",
+  todo: "planned"
 };
 
 const typeByDemand: Record<DemandType, string> = {
@@ -57,6 +74,10 @@ export function statusToTaskStatus(status: DemandStatus) {
 
 export function taskStatusToDemandStatus(status: string): DemandStatus {
   return demandStatusByTask[status] || "A Fazer";
+}
+
+export function taskStatusToWorkflowStatus(status: string): WorkflowStatus {
+  return workflowStatusByTask[status] || "planned";
 }
 
 export function crmTypeToTaskType(type: DemandType) {
@@ -95,7 +116,7 @@ export function mapTaskRowToDemand(row: ProductionTaskRow, clientName: string): 
   const checklist = readChecklist(row.checklist);
 
   return {
-    assigneeIds: [row.assignee_id],
+    assigneeIds: checklist.assigneeIds?.length ? checklist.assigneeIds : [row.assignee_id],
     authorId: row.reviewer_id || "",
     client: clientName,
     comments: checklist.comments || [],
@@ -114,20 +135,31 @@ export function mapTaskRowToDemand(row: ProductionTaskRow, clientName: string): 
     title: row.title,
     type: taskTypeToDemandType(row.type),
     deliveries: checklist.deliveries,
-    approvedPieces: checklist.approvedPieces
+    approvedPieces: checklist.approvedPieces,
+    archivedAt: row.archived_at || undefined,
+    blockedCategory: row.blocked_category || undefined,
+    blockedFromStatus: row.blocked_from_status
+      ? taskStatusToWorkflowStatus(row.blocked_from_status)
+      : undefined,
+    blockedReason: row.blocked_reason || undefined,
+    reviewerId: row.reviewer_id || undefined,
+    stageEnteredAt: row.stage_entered_at,
+    stageSlaDueAt: row.stage_sla_due_at || undefined,
+    workflowStatus: taskStatusToWorkflowStatus(row.status)
   };
 }
 
 export function mapDemandToTaskInserts(
   demand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt">,
-  clientId: string
+  clientId: string,
+  taskId = `dem-${Date.now()}`
 ): ProductionTaskInsert[] {
   const dueDate = normalizeDueDate(demand.deadline);
   const taskType = crmTypeToTaskType(demand.type);
-  const baseId = `dem-${Date.now()}`;
+  const primaryAssigneeId = demand.assigneeIds[0] || demand.authorId;
 
-  return demand.assigneeIds.map((assigneeId, index) => ({
-    assignee_id: assigneeId,
+  return [{
+    assignee_id: primaryAssigneeId,
     channel: "Instagram",
     checklist: {
       description: demand.description,
@@ -135,21 +167,22 @@ export function mapDemandToTaskInserts(
       pieceCount: demand.pieceCount || 1,
       pieceInstructions: demand.pieceInstructions || [],
       planningLink: demand.planningLink,
-      caption: (demand as Demand).caption
+      caption: (demand as Demand).caption,
+      assigneeIds: demand.assigneeIds
     },
     client_id: clientId,
     deliverable: demand.deliveryLink || "",
     due_date: dueDate,
     estimated_hours: 0,
-    id: demand.assigneeIds.length === 1 ? baseId : `${baseId}-${index + 1}`,
+    id: taskId,
     priority: "medium",
     reviewer_id: demand.authorId,
     spent_hours: 0,
     stage_note: demand.description,
-    status: "todo",
+    status: "planned",
     title: demand.title,
     type: taskType
-  }));
+  }];
 }
 
 export function mapProfileToUser(profile: ProfileRow): User {

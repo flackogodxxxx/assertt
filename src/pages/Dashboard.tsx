@@ -70,7 +70,7 @@ function AdminDashboard({ visibleDemands }: { visibleDemands: Demand[] }) {
                     <span className="text-xs font-bold uppercase tracking-wider text-accent-300">{demand.client}</span>
                     <h3 className="truncate text-base font-bold text-carbon-50 mt-0.5">{demand.title}</h3>
                   </div>
-                  <Link to="/crm/demandas" className="shrink-0 rounded-full bg-carbon-800 px-4 py-2 text-xs font-bold text-carbon-100 hover:bg-accent-400 hover:text-carbon-950 transition-colors">
+                  <Link to={`/crm/demandas/${demand.id}?tab=qc`} className="shrink-0 rounded-full bg-carbon-800 px-4 py-2 text-xs font-bold text-carbon-100 hover:bg-accent-400 hover:text-carbon-950 transition-colors">
                     Revisar Entrega
                   </Link>
                 </article>
@@ -142,7 +142,7 @@ function CreatorDashboard({ visibleDemands }: { visibleDemands: Demand[] }) {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Link to="/crm/demandas" className="inline-flex h-12 items-center justify-center gap-2 rounded-card bg-assert-400 px-8 font-bold text-carbon-950 transition-all hover:bg-assert-300">
+            <Link to={`/crm/demandas/${heroTask.id}`} className="inline-flex h-12 items-center justify-center gap-2 rounded-card bg-assert-400 px-8 font-bold text-carbon-950 transition-all hover:bg-assert-300">
               Acessar Demanda
               <ArrowRight className="size-4" />
             </Link>

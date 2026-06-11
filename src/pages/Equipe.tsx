@@ -4,18 +4,20 @@ import { USERS_DB, getGlobalAvatar, type Role, type User, getGlobalStatus, type 
 import { useDemands } from "../contexts/DemandContext";
 import { usePresence } from "../contexts/PresenceContext";
 import { cn } from "../lib/cn";
+import { calculateCapacity } from "../features/capacity/capacity";
+import { mapProfileToUser } from "../lib/crm-mappers";
+import { supabase } from "../lib/supabase";
+import type { ProfileRow } from "../lib/supabase-types";
 
 type Status = UserStatus;
-
-const getSimulatedStatus = (id: string): Status => {
-  const hash = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const mod = hash % 10;
-  if (mod < 5) return "ONLINE";
-  if (mod === 5) return "EM REUNIAO";
-  if (mod === 6) return "ALMOÇANDO";
-  if (mod === 7 || mod === 8) return "EM GRAVAÇÃO";
-  return "OFFLINE";
+type CapacityRow = {
+  assignee_id: string | null;
+  estimated_minutes: number | null;
+  production_tasks?: { due_date?: string | null } | Array<{ due_date?: string | null }>;
+  status: string;
 };
+
+const db = supabase as any;
 
 const getStatusConfig = (status: Status) => {
   switch (status) {
@@ -43,8 +45,10 @@ const getRoleIcon = (role: Role) => {
 
 export function Equipe() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [team, setTeam] = useState<User[]>(USERS_DB);
+  const [capacityRows, setCapacityRows] = useState<CapacityRow[]>([]);
   const { demands } = useDemands();
-  const { getPresenceStatus, isOnline, onlineUserIds } = usePresence();
+  const { getPresenceStatus, isOnline } = usePresence();
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -57,12 +61,53 @@ export function Equipe() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    async function refreshOperationalData() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) return;
+
+      const [profilesResult, itemsResult] = await Promise.all([
+        db.from("profiles").select("*").order("name"),
+        db
+          .from("demand_items")
+          .select("assignee_id, estimated_minutes, status, production_tasks!inner(due_date)")
+          .not("status", "in", "(approved,delivered)")
+      ]);
+
+      if (!active) return;
+      if (!profilesResult.error && profilesResult.data?.length) {
+        setTeam((profilesResult.data as ProfileRow[]).map(mapProfileToUser));
+      }
+      if (!itemsResult.error) {
+        setCapacityRows((itemsResult.data || []) as CapacityRow[]);
+      }
+    }
+
+    void refreshOperationalData();
+    const channel = supabase
+      .channel(`team-capacity:${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        void refreshOperationalData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "demand_items" }, () => {
+        void refreshOperationalData();
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
   const filteredTeam = useMemo(() => {
-    return USERS_DB.filter(user => 
+    return team.filter(user =>
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       user.role.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm]);
+  }, [searchTerm, team]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-700">
@@ -86,19 +131,50 @@ export function Equipe() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {filteredTeam.map((member, index) => {
-          const avatar = getGlobalAvatar(member.email);
+          const avatar = member.avatar || getGlobalAvatar(member.email);
           
-          let status: UserStatus;
-          const isRealtimeActive = onlineUserIds.length > 0;
-          
-          if (isRealtimeActive) {
-            status = isOnline(member.id) ? (getPresenceStatus(member.id) || "ONLINE") : "OFFLINE";
-          } else {
-            status = getGlobalStatus(member.id) || getSimulatedStatus(member.id);
-          }
+          const status: UserStatus = isOnline(member.id)
+            ? getPresenceStatus(member.id) || getGlobalStatus(member.id) || "ONLINE"
+            : "OFFLINE";
           
           const statusConf = getStatusConfig(status);
-          const activeDemandsCount = demands.filter(d => d.assigneeIds.includes(member.id) && d.status !== "Concluído").length;
+          const memberDemands = demands.filter(
+            (demand) => demand.assigneeIds.includes(member.id) && demand.status !== "Concluído"
+          );
+          const activeDemandsCount = memberDemands.length;
+          const normalizedWork = capacityRows
+            .filter((item) => item.assignee_id === member.id)
+            .map((item) => {
+              const linkedTask = Array.isArray(item.production_tasks)
+                ? item.production_tasks[0]
+                : item.production_tasks;
+              return {
+                activePieces: 1,
+                adjustmentCycles: item.status === "adjustments" ? 1 : 0,
+                dueAt: linkedTask?.due_date || undefined,
+                estimatedMinutes: item.estimated_minutes || 120
+              };
+            });
+          const capacity = calculateCapacity({
+            weeklyCapacityMinutes: 2400,
+            work: normalizedWork.length
+              ? normalizedWork
+              : memberDemands.map((demand) => ({
+                  activePieces: demand.pieceCount || 1,
+                  adjustmentCycles:
+                    demand.workflowStatus === "adjustments"
+                      ? Math.max(1, demand.comments?.length || 0)
+                      : 0,
+                  dueAt: demand.deadline,
+                  estimatedMinutes: Math.max(1, demand.pieceCount || 1) * 120
+                }))
+          });
+          const capacityLabel = {
+            available: "Disponível",
+            balanced: "Equilibrada",
+            "near-capacity": "Próximo do limite",
+            overloaded: "Acima da capacidade"
+          }[capacity.label];
 
           return (
             <article 
@@ -134,12 +210,31 @@ export function Equipe() {
                 </div>
               </div>
 
-              <div className="mt-auto pt-4 border-t border-glass-stroke/50 flex items-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-carbon-500 uppercase tracking-wider">Demandas Ativas</span>
-                  <span className="grid min-w-6 place-items-center rounded-full bg-carbon-950 px-1.5 py-0.5 text-xs font-bold text-carbon-200 border border-carbon-800">
-                    {activeDemandsCount}
-                  </span>
+              <div className="mt-auto space-y-3 border-t border-glass-stroke/50 pt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold uppercase text-carbon-500">Demandas ativas</span>
+                  <span className="text-xs font-bold text-carbon-200">{activeDemandsCount}</span>
+                </div>
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between gap-2 text-xs font-bold">
+                    <span className="text-carbon-500">Capacidade real</span>
+                    <span className={capacity.loadPercent > 100 ? "text-red-300" : "text-carbon-300"}>
+                      {capacity.loadPercent}% · {capacityLabel}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden bg-carbon-800">
+                    <div
+                      className={cn(
+                        "h-full",
+                        capacity.loadPercent > 100
+                          ? "bg-red-400"
+                          : capacity.loadPercent >= 80
+                            ? "bg-amber-400"
+                            : "bg-signal-400"
+                      )}
+                      style={{ width: `${Math.min(100, capacity.loadPercent)}%` }}
+                    />
+                  </div>
                 </div>
               </div>
             </article>

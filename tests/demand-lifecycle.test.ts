@@ -29,6 +29,24 @@ describe("demand lifecycle", () => {
     ).toEqual(["done"]);
   });
 
+  it("archives only the canonical delivered state when workflow metadata exists", () => {
+    const approved = {
+      ...demand("approved", "Em Revisão"),
+      workflowStatus: "approved"
+    } as Demand;
+    const delivered = {
+      ...demand("delivered", "Concluído"),
+      workflowStatus: "delivered"
+    } as Demand;
+
+    expect(getOperationalDemands([approved, delivered]).map((item) => item.id)).toEqual([
+      "approved"
+    ]);
+    expect(getArchivedDemands([approved, delivered]).map((item) => item.id)).toEqual([
+      "delivered"
+    ]);
+  });
+
   it("allows permanent deletion only for admins and archived demands", () => {
     const admin = { role: "Admin" } as User;
     const organizer = { role: "Organizador" } as User;

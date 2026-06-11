@@ -7,6 +7,7 @@ type PresenceState = Record<string, { online: boolean; status: UserStatus; lastS
 interface PresenceContextType {
   onlineUserIds: string[];
   getPresenceStatus: (userId: string) => UserStatus | undefined;
+  getLastSeen: (userId: string) => string | undefined;
   isOnline: (userId: string) => boolean;
 }
 
@@ -22,55 +23,80 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const channel = supabase.channel("crm-online-presence", {
-      config: { presence: { key: user.id } }
-    });
+    let channel: ReturnType<typeof supabase.channel> | undefined;
+    let cancelled = false;
 
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<{
-          lastSeen: string;
-          status: UserStatus;
-          userId: string;
-        }>();
-
-        const nextPresence: PresenceState = {};
-        Object.entries(state).forEach(([key, values]) => {
-          const latest = values.at(-1);
-          if (!latest) {
-            return;
-          }
-
-          nextPresence[latest.userId || key] = {
-            lastSeen: latest.lastSeen,
+    void supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      if (!data.session) {
+        setPresence({
+          [user.id]: {
+            lastSeen: new Date().toISOString(),
             online: true,
-            status: latest.status || "ONLINE"
-          };
+            status: user.status || "ONLINE"
+          }
         });
-        setPresence(nextPresence);
-      })
-      .subscribe(async (status) => {
-        if (status !== "SUBSCRIBED") {
-          return;
-        }
+        return;
+      }
 
-        await channel.track({
-          lastSeen: new Date().toISOString(),
-          status: user.status || "ONLINE",
-          userId: user.id
-        });
+      channel = supabase.channel("crm-online-presence", {
+        config: {
+          private: true,
+          presence: { key: user.id }
+        }
       });
 
+      channel
+        .on("presence", { event: "sync" }, () => {
+          const state = channel!.presenceState<{
+            lastSeen: string;
+            status: UserStatus;
+            userId: string;
+          }>();
+
+          setPresence((previous) => {
+            const nextPresence: PresenceState = Object.fromEntries(
+              Object.entries(previous).map(([id, value]) => [
+                id,
+                { ...value, online: false }
+              ])
+            );
+            Object.entries(state).forEach(([key, values]) => {
+              const latest = values.at(-1);
+              if (!latest) return;
+              nextPresence[latest.userId || key] = {
+                lastSeen: latest.lastSeen,
+                online: true,
+                status: latest.status || "ONLINE"
+              };
+            });
+            return nextPresence;
+          });
+        })
+        .subscribe(async (status) => {
+          if (status !== "SUBSCRIBED") return;
+          await channel!.track({
+            lastSeen: new Date().toISOString(),
+            status: user.status || "ONLINE",
+            userId: user.id
+          });
+        });
+    });
+
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [user]);
 
   const value = useMemo<PresenceContextType>(
     () => ({
       getPresenceStatus: (userId) => presence[userId]?.status,
+      getLastSeen: (userId) => presence[userId]?.lastSeen,
       isOnline: (userId) => Boolean(presence[userId]?.online),
-      onlineUserIds: Object.keys(presence)
+      onlineUserIds: Object.entries(presence)
+        .filter(([, value]) => value.online)
+        .map(([id]) => id)
     }),
     [presence]
   );

@@ -2,7 +2,9 @@ import type { User } from "../contexts/AuthContext";
 import type { Demand } from "../contexts/DemandContext";
 
 export function isArchivedDemand(demand: Demand) {
-  return demand.status === "Concluído";
+  return demand.workflowStatus
+    ? demand.workflowStatus === "delivered"
+    : demand.status === "Concluído";
 }
 
 export function getOperationalDemands(demands: Demand[]) {

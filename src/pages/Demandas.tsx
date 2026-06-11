@@ -22,7 +22,14 @@ import {
 import { DropboxMark, CanvaMark } from "../components/brand-icons";
 import { Button } from "../components/ui/button";
 import { USERS_DB, useAuth, getGlobalAvatar } from "../contexts/AuthContext";
-import { type Demand, type DemandStatus, type DemandType, type Comment, useDemands } from "../contexts/DemandContext";
+import {
+  canUserSeeDemand,
+  type Demand,
+  type DemandStatus,
+  type DemandType,
+  type Comment,
+  useDemands
+} from "../contexts/DemandContext";
 import { useNotification } from "../contexts/NotificationContext";
 import { getAllClients } from "../data/clients";
 import { cn } from "../lib/cn";
@@ -39,8 +46,7 @@ import {
 const columns: { id: DemandStatus; title: string; subtitle: string; tone: string }[] = [
   { id: "A Fazer", title: "Entrada", subtitle: "briefing recebido", tone: "text-carbon-150" },
   { id: "Em Andamento", title: "Produção", subtitle: "responsável atuando", tone: "text-assert-300" },
-  { id: "Em Revisão", title: "Aprovação", subtitle: "admin decide", tone: "text-accent-300" },
-  { id: "Concluído", title: "Entregue", subtitle: "material finalizado", tone: "text-signal-300" }
+  { id: "Em Revisão", title: "Aprovação", subtitle: "admin decide", tone: "text-accent-300" }
 ];
 
 const fieldClass =
@@ -326,7 +332,7 @@ function DemandCard({
   );
 }
 
-function MyTasksView({ demands, onStatusChange, onClick }: { demands: Demand[], onStatusChange: (id: string, s: DemandStatus) => void, onClick: (d: Demand) => void }) {
+function MyTasksView({ demands, onClick }: { demands: Demand[], onClick: (d: Demand) => void }) {
   const { user } = useAuth();
   
   // Foca nas demandas não concluídas, priorizando as atribuídas ao usuário
@@ -373,14 +379,10 @@ function MyTasksView({ demands, onStatusChange, onClick }: { demands: Demand[], 
             {formatDemandScope(demand.pieceCount || 1, demand.type)}
           </p>
           
-          <div className="mt-auto pt-4 flex gap-2">
-            <button onClick={() => onClick(demand)} className="flex-1 bg-carbon-800 hover:bg-carbon-700 text-carbon-50 font-bold text-xs py-2 rounded border border-glass-stroke transition-all">Ver Detalhes</button>
-            {demand.status !== "Em Revisão" && (
-              <button onClick={() => onStatusChange(demand.id, demand.status === "A Fazer" ? "Em Andamento" : "Em Revisão")} className="flex-1 bg-assert-500 hover:bg-assert-400 text-carbon-50 font-bold text-xs py-2 rounded transition-all shadow-cta flex items-center justify-center gap-1">
-                {demand.status === "A Fazer" ? "Iniciar" : "Entregar"}
-                <ArrowRight className="size-3" />
-              </button>
-            )}
+          <div className="mt-auto pt-4">
+            <button onClick={() => onClick(demand)} className="w-full bg-carbon-800 hover:bg-carbon-700 text-carbon-50 font-bold text-xs py-2 rounded border border-glass-stroke transition-all">
+              Abrir demanda
+            </button>
           </div>
         </div>
       ))}
@@ -388,12 +390,20 @@ function MyTasksView({ demands, onStatusChange, onClick }: { demands: Demand[], 
   );
 }
 
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 export function Demandas() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { visibleDemands: allVisibleDemands, addDemand, updateDemandStatus, updateDemand, addComment } = useDemands();
+  const {
+    archivedDemands,
+    visibleDemands: allVisibleDemands,
+    addDemand,
+    updateDemandStatus,
+    updateDemand,
+    addComment
+  } = useDemands();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
@@ -422,6 +432,10 @@ export function Demandas() {
     
     return filtered;
   }, [allVisibleDemands, location.pathname, searchQuery, dateFilter]);
+  const visibleArchivedDemands = useMemo(
+    () => archivedDemands.filter((demand) => canUserSeeDemand(demand, user)),
+    [archivedDemands, user]
+  );
   const { showNotification } = useNotification();
 
   const [isModalOpen, setIsModalOpen] = useState(() => searchParams.has("newDemandFor"));
@@ -624,13 +638,13 @@ export function Demandas() {
     ? "Fila de Edição de Vídeo." 
     : isArtes 
       ? "Fila de Design e Artes." 
-      : "Acompanhe e mova as demandas ativas.";
+      : "Acompanhe as demandas ativas.";
 
   const pageSubtitle = isVideos
     ? "Visão específica do pipeline de audiovisual."
     : isArtes
       ? "Visão específica do pipeline de criação gráfica."
-      : "Visão geral do pipeline de criação. Arraste os cards para atualizar o status e clique para ver os detalhes.";
+      : "Visão rápida do pipeline. Abra uma demanda para executar ações, entregas e revisões.";
 
   const badgeText = isVideos ? "audiovisual" : isArtes ? "design" : "visão operacional";
 
@@ -695,7 +709,7 @@ export function Demandas() {
           {[
             { label: "visíveis para você", value: visibleDemands.length, Icon: UserRoundCheck },
             { label: "em aprovação", value: visibleDemands.filter((demand) => demand.status === "Em Revisão").length, Icon: FileCheck2 },
-            { label: "concluídas", value: visibleDemands.filter((demand) => demand.status === "Concluído").length, Icon: CheckCircle2 }
+            { label: "arquivadas", value: visibleArchivedDemands.length, Icon: CheckCircle2 }
           ].map(({ label, value, Icon }, index) => (
             <article
               className="crm-card-enter rounded-card border border-glass-stroke bg-carbon-950/42 p-4 shadow-panel"
@@ -713,7 +727,10 @@ export function Demandas() {
       </section>
 
       {isVideos || isArtes ? (
-        <MyTasksView demands={visibleDemands} onStatusChange={handleStatusChange} onClick={setSelectedDemand} />
+        <MyTasksView
+          demands={visibleDemands}
+          onClick={(demand) => navigate(`/crm/demandas/${demand.id}`)}
+        />
       ) : (
         <section className="crm-kanban-scroll flex gap-4 overflow-x-auto pb-4 xl:grid xl:auto-cols-fr xl:grid-flow-col xl:overflow-visible min-h-[60vh]">
           {columns.map((column) => {
@@ -723,21 +740,6 @@ export function Demandas() {
               <div 
                 className="flex w-[18rem] shrink-0 flex-col rounded-[1.05rem] border border-glass-stroke bg-carbon-900/28 p-3 shadow-panel backdrop-blur-xl transition-colors duration-300 drag-over:bg-carbon-800/40 xl:w-auto" 
                 key={column.id}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.add("bg-carbon-800/40");
-                }}
-                onDragLeave={(e) => {
-                  e.currentTarget.classList.remove("bg-carbon-800/40");
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.remove("bg-carbon-800/40");
-                  const demandId = e.dataTransfer.getData("demandId");
-                  if (demandId) {
-                    handleStatusChange(demandId, column.id);
-                  }
-                }}
               >
                 <div className="mb-3 flex min-h-16 shrink-0 items-center justify-between gap-3 rounded-card border border-carbon-800/80 bg-carbon-950/46 p-3">
                   <div className="min-w-0">
@@ -753,13 +755,13 @@ export function Demandas() {
                   {columnDemands.length ? (
                     columnDemands.map((demand, index) => (
                       <DemandCard
-                        canApprove={canApprove}
-                        canMove={true}
+                        canApprove={false}
+                        canMove={false}
                         demand={demand}
                         index={index}
                         key={demand.id}
                         onStatusChange={handleStatusChange}
-                        onClick={() => setSelectedDemand(demand)}
+                        onClick={() => navigate(`/crm/demandas/${demand.id}`)}
                       />
                     ))
                   ) : (

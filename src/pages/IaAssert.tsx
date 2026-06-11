@@ -8,6 +8,7 @@ import {
   buildProofreadingPrompt,
   buildTranscriptionPrompt
 } from "../lib/ia-prompts";
+import { Link, useSearchParams } from "react-router-dom";
 
 type TabMode = 'legenda' | 'copy';
 type Platform = 'instagram' | 'tiktok';
@@ -36,6 +37,14 @@ interface GeminiResponse {
 
 export function IaAssert() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const operationalContext = {
+    briefing: searchParams.get("briefing") || "",
+    client: searchParams.get("client") || "",
+    demandId: searchParams.get("demandId") || "",
+    title: searchParams.get("title") || "",
+    type: searchParams.get("type") || ""
+  };
   
   const [activeTab, setActiveTab] = useState<TabMode>('legenda');
   const [platform, setPlatform] = useState<Platform>('instagram');
@@ -113,16 +122,22 @@ export function IaAssert() {
 
   const getPromptAndModel = (mimeType: string) => {
     const isImage = mimeType.startsWith("image/");
+    const contextBlock = operationalContext.client
+      ? `\n\nCONTEXTO OPERACIONAL FORNECIDO PELO CRM:\nCliente: ${operationalContext.client}\nDemanda: ${operationalContext.title || "não informada"}\nTipo: ${operationalContext.type || "não informado"}\nBriefing: ${operationalContext.briefing || "não informado"}\nUse este contexto apenas quando for compatível com o conteúdo real do arquivo.`
+      : "";
     
     if (activeTab === 'copy') {
-      return { ...buildCopyPrompt(platform), model: getDefaultGeminiModel() };
+      const prompt = buildCopyPrompt(platform);
+      return { ...prompt, prompt: `${prompt.prompt}${contextBlock}`, model: getDefaultGeminiModel() };
     }
 
     if (isImage) {
-      return { ...buildProofreadingPrompt(), model: getDefaultGeminiModel() };
+      const prompt = buildProofreadingPrompt();
+      return { ...prompt, prompt: `${prompt.prompt}${contextBlock}`, model: getDefaultGeminiModel() };
     }
 
-    return { ...buildTranscriptionPrompt(generateHooks), model: getDefaultGeminiModel() };
+    const prompt = buildTranscriptionPrompt(generateHooks);
+    return { ...prompt, prompt: `${prompt.prompt}${contextBlock}`, model: getDefaultGeminiModel() };
   };
 
   const callIaAutomation = async (targetFile: File) => {
@@ -219,6 +234,33 @@ export function IaAssert() {
           </div>
         )}
       </div>
+
+      {operationalContext.client && (
+        <section className="mb-6 border border-accent-300/20 bg-accent-400/5 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase text-accent-300">Contexto do CRM</p>
+              <p className="mt-1 text-sm font-bold text-carbon-100">
+                {operationalContext.client}
+                {operationalContext.title ? ` · ${operationalContext.title}` : ""}
+              </p>
+              {operationalContext.briefing && (
+                <p className="mt-2 line-clamp-2 text-xs leading-5 text-carbon-400">
+                  {operationalContext.briefing}
+                </p>
+              )}
+            </div>
+            {operationalContext.demandId && (
+              <Link
+                className="inline-flex min-h-10 items-center justify-center border border-accent-300/25 px-3 text-xs font-bold text-accent-300"
+                to={`/crm/demandas/${operationalContext.demandId}`}
+              >
+                Voltar à demanda
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         {!result && !isGenerating && (

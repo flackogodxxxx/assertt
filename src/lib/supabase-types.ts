@@ -53,7 +53,14 @@ export type NotificationInsert = {
 };
 
 export type ProductionTaskRow = {
+  archived_at?: string | null;
+  archived_by?: string | null;
   assignee_id: string;
+  blocked_at?: string | null;
+  blocked_by?: string | null;
+  blocked_category?: string | null;
+  blocked_from_status?: string | null;
+  blocked_reason?: string | null;
   channel: string;
   checklist: Json;
   client_id: string;
@@ -65,7 +72,9 @@ export type ProductionTaskRow = {
   priority: string;
   reviewer_id: string | null;
   spent_hours: number;
+  stage_entered_at?: string;
   stage_note: string;
+  stage_sla_due_at?: string | null;
   status: string;
   title: string;
   type: string;
@@ -88,6 +97,93 @@ export type ProductionTaskInsert = {
   status: string;
   title: string;
   type: string;
+};
+
+export type DemandItemRow = {
+  approved_at: string | null;
+  approved_by: string | null;
+  assignee_id: string | null;
+  created_at: string;
+  estimated_minutes: number;
+  id: string;
+  instruction: string;
+  is_required: boolean;
+  item_type: string;
+  position: number;
+  status: string;
+  task_id: string;
+  title: string;
+  updated_at: string;
+};
+
+export type SubmissionRow = {
+  created_at: string;
+  description: string;
+  id: string;
+  status: string;
+  submitted_by: string;
+  task_id: string;
+  version: number;
+};
+
+export type SubmissionItemRow = {
+  created_at: string;
+  demand_item_id: string;
+  id: string;
+  media_type: string;
+  review_status: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  submission_id: string;
+  url: string;
+};
+
+export type ReviewCommentRow = {
+  author_id: string;
+  body: string;
+  created_at: string;
+  demand_item_id: string | null;
+  end_seconds: number | null;
+  id: string;
+  reference_attachments: Json;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  start_seconds: number | null;
+  status: string;
+  submission_id: string | null;
+  task_id: string;
+};
+
+export type ActivityEventRow = {
+  actor_id: string | null;
+  client_id: string | null;
+  created_at: string;
+  event_type: string;
+  id: string;
+  payload: Json;
+  task_id: string | null;
+};
+
+export type NotificationPreferenceRow = {
+  assignment_enabled: boolean;
+  deadline_enabled: boolean;
+  desktop_enabled: boolean;
+  review_enabled: boolean;
+  sound_enabled: boolean;
+  updated_at: string;
+  user_id: string;
+};
+
+export type AutomationEventRow = {
+  created_at: string;
+  error: string | null;
+  event_key: string;
+  id: string;
+  payload: Json;
+  processed_at: string | null;
+  source: string;
+  status: string;
+  task_id: string | null;
 };
 
 export type ProfileRow = {
@@ -131,6 +227,47 @@ export type Database = {
         Row: DemandAttachmentRow;
         Insert: Omit<DemandAttachmentRow, "created_at" | "id"> & { created_at?: string; id?: string };
         Update: Partial<DemandAttachmentRow>;
+      };
+      demand_items: {
+        Row: DemandItemRow;
+        Insert: Omit<DemandItemRow, "approved_at" | "approved_by" | "created_at" | "id" | "updated_at"> &
+          Partial<Pick<DemandItemRow, "approved_at" | "approved_by" | "created_at" | "id" | "updated_at">>;
+        Update: Partial<DemandItemRow>;
+      };
+      submissions: {
+        Row: SubmissionRow;
+        Insert: Omit<SubmissionRow, "created_at" | "id" | "status" | "version"> &
+          Partial<Pick<SubmissionRow, "created_at" | "id" | "status" | "version">>;
+        Update: Partial<SubmissionRow>;
+      };
+      submission_items: {
+        Row: SubmissionItemRow;
+        Insert: Omit<SubmissionItemRow, "created_at" | "id" | "review_status" | "reviewed_at" | "reviewed_by"> &
+          Partial<Pick<SubmissionItemRow, "created_at" | "id" | "review_status" | "reviewed_at" | "reviewed_by">>;
+        Update: Partial<SubmissionItemRow>;
+      };
+      review_comments: {
+        Row: ReviewCommentRow;
+        Insert: Omit<ReviewCommentRow, "created_at" | "id" | "resolved_at" | "resolved_by" | "status"> &
+          Partial<Pick<ReviewCommentRow, "created_at" | "id" | "resolved_at" | "resolved_by" | "status">>;
+        Update: Partial<ReviewCommentRow>;
+      };
+      activity_events: {
+        Row: ActivityEventRow;
+        Insert: Omit<ActivityEventRow, "created_at" | "id"> &
+          Partial<Pick<ActivityEventRow, "created_at" | "id">>;
+        Update: never;
+      };
+      notification_preferences: {
+        Row: NotificationPreferenceRow;
+        Insert: Omit<NotificationPreferenceRow, "updated_at"> & { updated_at?: string };
+        Update: Partial<NotificationPreferenceRow>;
+      };
+      automation_events: {
+        Row: AutomationEventRow;
+        Insert: Omit<AutomationEventRow, "created_at" | "id"> &
+          Partial<Pick<AutomationEventRow, "created_at" | "id">>;
+        Update: never;
       };
       notifications: {
         Row: NotificationRow;

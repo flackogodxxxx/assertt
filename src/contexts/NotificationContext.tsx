@@ -5,6 +5,14 @@ import { notificationRowToEvent } from "../lib/crm-mappers";
 import { playNotificationTone, shouldAlertForNotification, showNativeNotification } from "../lib/notification-realtime";
 import { supabase } from "../lib/supabase";
 import type { NotificationRow } from "../lib/supabase-types";
+import {
+  defaultNotificationPreferences,
+  isNotificationTypeEnabled,
+  normalizeNotificationPreferences,
+  type NotificationPreferences,
+  type OperationalNotificationType
+} from "../features/notifications/preferences";
+import type { RealtimeConnectionState } from "../features/notifications/realtime";
 
 const db = supabase as any;
 
@@ -34,9 +42,16 @@ interface NotificationContextType {
   deleteNotification: (id: string) => void;
   markEventAsRead: (id: string) => void;
   markAllEventsAsRead: () => void;
+  connectionState: RealtimeConnectionState;
+  remoteEnabled: boolean;
+  preferences: NotificationPreferences;
+  requestDesktopPermission: () => Promise<boolean>;
+  testNotification: () => Promise<void>;
+  updatePreferences: (updates: Partial<NotificationPreferences>) => Promise<void>;
 }
 
 const NOTIFICATIONS_STORAGE_KEY = "crm_notification_events";
+const NOTIFICATION_PREFERENCES_KEY = "crm_notification_preferences";
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function getStoredNotificationEvents(): NotificationEvent[] {
@@ -67,9 +82,54 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [events, setEvents] = useState<NotificationEvent[]>(getStoredNotificationEvents);
   const [remoteEnabled, setRemoteEnabled] = useState(false);
+  const [connectionState, setConnectionState] =
+    useState<RealtimeConnectionState>(navigator.onLine ? "connecting" : "offline");
+  const [preferences, setPreferences] = useState<NotificationPreferences>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(NOTIFICATION_PREFERENCES_KEY) || "null");
+      return stored ? { ...defaultNotificationPreferences, ...stored } : defaultNotificationPreferences;
+    } catch {
+      return defaultNotificationPreferences;
+    }
+  });
   const alertedIdsRef = useRef(new Set<string>());
   const audioContextRef = useRef<AudioContext | undefined>(undefined);
   const { user } = useAuth();
+
+  const persistPreferences = useCallback((next: NotificationPreferences) => {
+    setPreferences(next);
+    localStorage.setItem(NOTIFICATION_PREFERENCES_KEY, JSON.stringify(next));
+  }, []);
+
+  const updatePreferences = useCallback(
+    async (updates: Partial<NotificationPreferences>) => {
+      const next = { ...preferences, ...updates };
+      persistPreferences(next);
+
+      if (!user) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) return;
+
+      await db.from("notification_preferences").upsert({
+        assignment_enabled: next.assignmentEnabled,
+        deadline_enabled: next.deadlineEnabled,
+        desktop_enabled: next.desktopEnabled,
+        review_enabled: next.reviewEnabled,
+        sound_enabled: next.soundEnabled,
+        updated_at: new Date().toISOString(),
+        user_id: user.id
+      });
+    },
+    [persistPreferences, preferences, user]
+  );
+
+  const requestDesktopPermission = useCallback(async () => {
+    if (!("Notification" in window)) return false;
+    const permission = await Notification.requestPermission();
+    const granted = permission === "granted";
+    await updatePreferences({ desktopEnabled: granted });
+    return granted;
+  }, [updatePreferences]);
 
   const removeNotification = useCallback((id: string) => {
     setNotifications((previousNotifications) => previousNotifications.filter((notification) => notification.id !== id));
@@ -87,6 +147,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [removeNotification]
   );
 
+  const testNotification = useCallback(async () => {
+    showNotification("Notificação de teste", "Som e alerta do WORKOS estão configurados.", "success");
+    if (preferences.soundEnabled) {
+      await playNotificationTone(audioContextRef.current);
+    }
+    if (preferences.desktopEnabled && Notification.permission === "granted") {
+      await showNativeNotification("Notificação de teste", "Alertas do WORKOS estão ativos.");
+    }
+  }, [preferences.desktopEnabled, preferences.soundEnabled, showNotification]);
+
   const refreshEvents = useCallback(() => {
     setEvents(getStoredNotificationEvents());
   }, []);
@@ -96,6 +166,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     if (!user || !sessionData.session) {
       setRemoteEnabled(false);
+      setConnectionState(navigator.onLine ? "connecting" : "offline");
       return false;
     }
 
@@ -108,6 +179,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       setRemoteEnabled(false);
+      setConnectionState(navigator.onLine ? "reconnecting" : "offline");
       return false;
     }
 
@@ -115,6 +187,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setEvents((data || []).map((row: any) => notificationRowToEvent(row, row.target_user_id ? [row.target_user_id] : [user.id]) as NotificationEvent));
     return true;
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+
+    supabase.auth.getSession().then(({ data: sessionData }) => {
+      if (!sessionData.session) return;
+      db
+        .from("notification_preferences")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle()
+        .then(({ data }: { data: any }) => {
+          if (active && data) persistPreferences(normalizeNotificationPreferences(data));
+        });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [persistPreferences, user]);
 
   const targetedEvents = useMemo(() => {
     if (!user) {
@@ -226,9 +319,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           void audioContextRef.current.resume();
         }
         
-        if (typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-          void Notification.requestPermission();
-        }
       } catch {
         return;
       }
@@ -246,15 +336,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const isTarget = event.targetUserIds.includes(user.id);
         const deliveredTo = event.deliveredTo || [];
         const wasDelivered = deliveredTo.includes(user.id);
+        const operationalType = (
+          event.type === "warning" ? "deadline" : "general"
+        ) as OperationalNotificationType;
 
-        if (!isTarget || wasDelivered) {
+        if (
+          !isTarget ||
+          wasDelivered ||
+          !isNotificationTypeEnabled(operationalType, preferences)
+        ) {
           return event;
         }
 
         hasChanges = true;
         showNotification(event.title, event.message, event.type);
-        void playNotificationTone(audioContextRef.current);
-        void showNativeNotification(event.title, event.message);
+        if (preferences.soundEnabled) void playNotificationTone(audioContextRef.current);
+        if (preferences.desktopEnabled) {
+          void showNativeNotification(event.title, event.message, event.demandId);
+        }
 
         return { ...event, deliveredTo: [...deliveredTo, user.id] };
       });
@@ -275,14 +374,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
 
     const channel = supabase
-      .channel("crm-notifications-context")
+      .channel(`crm-notifications:${user.id}:${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
         (payload) => {
           const row = payload.new as NotificationRow;
+          const operationalType = (
+            ["assignment", "review", "deadline"].includes(row.type) ? row.type : "general"
+          ) as OperationalNotificationType;
 
           if (
+            !isNotificationTypeEnabled(operationalType, preferences) ||
             !shouldAlertForNotification(
               {
                 id: row.id,
@@ -306,8 +409,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             return [event, ...previousEvents].slice(0, 100);
           });
           showNotification(event.title, event.message, event.type);
-          void playNotificationTone(audioContextRef.current);
-          void showNativeNotification(event.title, event.message);
+          if (preferences.soundEnabled) void playNotificationTone(audioContextRef.current);
+          if (preferences.desktopEnabled) {
+            void showNativeNotification(event.title, event.message, event.demandId);
+          }
         }
       )
       .on(
@@ -324,18 +429,38 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           void refreshRemoteEvents();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setConnectionState("connected");
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          setConnectionState(navigator.onLine ? "reconnecting" : "offline");
+        }
+      });
 
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === NOTIFICATIONS_STORAGE_KEY) {
         processTargetedEvents();
       }
     };
+    const resync = () => {
+      if (navigator.onLine) void refreshRemoteEvents();
+    };
+    const handleOnline = () => {
+      setConnectionState("reconnecting");
+      resync();
+    };
+    const handleOffline = () => setConnectionState("offline");
 
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("crm-notification-events", processTargetedEvents);
     window.addEventListener("pointerdown", unlockAudio, { once: true });
     window.addEventListener("keydown", unlockAudio, { once: true });
+    window.addEventListener("focus", resync);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    document.addEventListener("visibilitychange", resync);
 
     return () => {
       isMounted = false;
@@ -344,19 +469,35 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("crm-notification-events", processTargetedEvents);
       window.removeEventListener("pointerdown", unlockAudio);
       window.removeEventListener("keydown", unlockAudio);
+      window.removeEventListener("focus", resync);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      document.removeEventListener("visibilitychange", resync);
     };
-  }, [refreshRemoteEvents, remoteEnabled, showNotification, user]);
+  }, [
+    preferences,
+    refreshRemoteEvents,
+    remoteEnabled,
+    showNotification,
+    user
+  ]);
 
   return (
     <NotificationContext.Provider
       value={{
+        connectionState,
+        remoteEnabled,
         markAllEventsAsRead,
         markEventAsRead,
         notifications,
+        preferences,
+        requestDesktopPermission,
         removeNotification,
         deleteNotification,
         showNotification,
+        testNotification,
         targetedEvents,
+        updatePreferences,
         unreadCount
       }}
     >

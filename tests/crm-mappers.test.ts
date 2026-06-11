@@ -63,13 +63,13 @@ const profile: ProfileRow = {
 
 describe("crm mappers", () => {
   it("converte status e tipo entre CRM e Supabase", () => {
-    expect(statusToTaskStatus("A Fazer")).toBe("todo");
+    expect(statusToTaskStatus("A Fazer")).toBe("planned");
     expect(statusToTaskStatus("Em Andamento")).toBe("production");
     expect(statusToTaskStatus("Em Revisão")).toBe("review");
     expect(statusToTaskStatus("Concluído")).toBe("delivered");
 
     expect(taskStatusToDemandStatus("adjustments")).toBe("Em Revisão");
-    expect(taskStatusToDemandStatus("approved")).toBe("Concluído");
+    expect(taskStatusToDemandStatus("approved")).toBe("Em Revisão");
     expect(taskTypeToDemandType("carousel")).toBe("Arte");
     expect(crmTypeToTaskType("Ambos")).toBe("carousel");
   });
@@ -100,7 +100,7 @@ describe("crm mappers", () => {
     });
   });
 
-  it("converte nova demanda em inserts de tasks para cada responsavel", () => {
+  it("converte nova demanda em uma raiz unica com todos os responsaveis no checklist", () => {
     const inserts = mapDemandToTaskInserts(
       {
         assigneeIds: ["des-1", "vid-1"],
@@ -118,7 +118,7 @@ describe("crm mappers", () => {
       "cli-facta"
     );
 
-    expect(inserts).toHaveLength(2);
+    expect(inserts).toHaveLength(1);
     expect(inserts[0]).toMatchObject({
       assignee_id: "des-1",
       channel: "Instagram",
@@ -126,7 +126,7 @@ describe("crm mappers", () => {
       due_date: "2026-06-20",
       priority: "medium",
       reviewer_id: "org-1",
-      status: "todo",
+      status: "planned",
       title: "Campanha multiformato",
       type: "carousel"
     });
@@ -136,6 +136,9 @@ describe("crm mappers", () => {
       pieceCount: 7,
       pieceInstructions: ["Abertura", "Demonstracao"],
       planningLink: "https://canva.example/planning"
+    });
+    expect(inserts[0].checklist).toMatchObject({
+      assigneeIds: ["des-1", "vid-1"]
     });
   });
 

@@ -7,6 +7,8 @@ import {
   CheckCircle2,
   CircleDashed,
   Clock,
+  Brain,
+  ClipboardCheck,
   ExternalLink,
   Search,
   Send,
@@ -19,6 +21,7 @@ import { useAuth, USERS_DB, getGlobalAvatar } from "../contexts/AuthContext";
 import { getClientLogo } from "../data/clientLogos";
 import { cn } from "../lib/cn";
 import { formatDemandScope } from "../lib/demand-scope";
+import { isArchivedDemand } from "../lib/demand-lifecycle";
 
 function formatDate(isoString: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -68,8 +71,8 @@ export function ClientProfile() {
     return clientDemands.filter((demand) => {
       const matchesTab =
         historyTab === "archived"
-          ? demand.status === "Concluído"
-          : demand.status !== "Concluído";
+          ? isArchivedDemand(demand)
+          : !isArchivedDemand(demand);
       const matchesSearch =
         !search ||
         demand.title.toLowerCase().includes(search) ||
@@ -93,6 +96,17 @@ export function ClientProfile() {
 
   const logo = getClientLogo(client.name);
   const isAdminOrOrg = user.role === "Admin" || user.role === "Organizador";
+  const activeCount = clientDemands.filter((demand) => !isArchivedDemand(demand)).length;
+  const archivedCount = clientDemands.filter(isArchivedDemand).length;
+  const reviewCount = clientDemands.filter((demand) =>
+    ["review", "adjustments"].includes(demand.workflowStatus || "")
+  ).length;
+  const nextDeadline = clientDemands
+    .filter((demand) => !isArchivedDemand(demand) && demand.deadline)
+    .sort(
+      (left, right) =>
+        new Date(left.deadline!).getTime() - new Date(right.deadline!).getTime()
+    )[0]?.deadline;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -130,6 +144,70 @@ export function ClientProfile() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Demandas ativas", value: activeCount, tone: "text-assert-300" },
+          { label: "Na fila de QC", value: reviewCount, tone: "text-accent-300" },
+          { label: "Entregas arquivadas", value: archivedCount, tone: "text-signal-300" },
+          {
+            label: "Próximo prazo",
+            value: nextDeadline
+              ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(
+                  new Date(nextDeadline)
+                )
+              : "Livre",
+            tone: "text-carbon-100"
+          }
+        ].map((metric) => (
+          <div className="border border-glass-stroke bg-carbon-950/45 p-4" key={metric.label}>
+            <p className="text-xs font-bold uppercase text-carbon-500">{metric.label}</p>
+            <p className={`mt-2 text-2xl font-bold ${metric.tone}`}>{metric.value}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="flex flex-col gap-4 border-y border-glass-stroke py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-bold text-carbon-100">
+            <ClipboardCheck className="size-5 text-accent-300" />
+            Central operacional do cliente
+          </h2>
+          <p className="mt-1 text-sm text-carbon-400">
+            Demandas, revisões, entregas e contexto criativo no mesmo perfil.
+          </p>
+        </div>
+        <Link
+          className="inline-flex min-h-11 items-center justify-center gap-2 bg-assert-400 px-4 text-sm font-bold text-carbon-950"
+          to={`/crm/ia?client=${encodeURIComponent(client.name)}`}
+        >
+          <Brain className="size-4" />
+          Abrir cliente na IA Assert
+        </Link>
+      </section>
+
+      <section>
+        <h2 className="text-base font-bold text-carbon-100">Atividade recente</h2>
+        <div className="mt-3 divide-y divide-carbon-800 border-y border-carbon-800">
+          {clientDemands.slice(0, 5).map((demand) => (
+            <Link
+              className="flex min-h-14 items-center justify-between gap-4 py-3 text-sm hover:text-assert-300"
+              key={demand.id}
+              to={`/crm/demandas/${demand.id}?tab=atividade`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-bold text-carbon-100">{demand.title}</span>
+                <span className="mt-1 block text-xs text-carbon-500">
+                  Estado atual: {demand.workflowStatus || demand.status}
+                </span>
+              </span>
+              <time className="shrink-0 text-xs font-bold text-carbon-500">
+                {formatDate(demand.statusUpdatedAt || demand.createdAt)}
+              </time>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -279,6 +357,12 @@ export function ClientProfile() {
                             Entrega
                           </a>
                         )}
+                        <Link
+                          className="inline-flex min-h-9 items-center gap-2 border border-carbon-700 bg-carbon-900 px-3 text-xs font-bold text-carbon-200 hover:border-assert-300/40 hover:text-assert-300"
+                          to={`/crm/demandas/${demand.id}`}
+                        >
+                          Abrir demanda
+                        </Link>
                         {user.role === "Admin" && isDone && (
                           <button
                             className="inline-flex min-h-9 items-center gap-2 rounded border border-red-400/30 bg-red-500/10 px-3 text-xs font-bold text-red-300 hover:bg-red-500/15"

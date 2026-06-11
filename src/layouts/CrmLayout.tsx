@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CheckCircle2,
   CheckSquare,
+  ClipboardCheck,
   Image as ImageIcon,
   Inbox,
   LayoutDashboard,
@@ -25,6 +26,8 @@ import { useNotification } from "../contexts/NotificationContext";
 import { useDemands } from "../contexts/DemandContext";
 import { getAllClients } from "../data/clients";
 import { cn } from "../lib/cn";
+import { CommandPalette } from "../features/command-palette/CommandPalette";
+import { NotificationStatus } from "../features/notifications/NotificationStatus";
 
 type CrmLink = {
   label: string;
@@ -39,6 +42,7 @@ const links: CrmLink[] = [
   { label: "Clientes", href: "/crm/clientes", icon: Briefcase, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Calendário", href: "/crm/calendario", icon: CalendarDays, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Demandas", href: "/crm/demandas", icon: CheckSquare, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
+  { label: "Revisões", href: "/crm/revisoes", icon: ClipboardCheck, roles: ["Admin", "Organizador"] },
   { label: "IA Assert", href: "/crm/ia", icon: Brain, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Vídeos", href: "/crm/videos", icon: Video, roles: ["Admin", "Video Maker"] },
   { label: "Artes", href: "/crm/artes", icon: ImageIcon, roles: ["Admin", "Designer"] },
@@ -266,8 +270,9 @@ export function CrmLayout() {
             </div>
           </div>
 
-          <div className="hidden min-w-0 items-center gap-3 md:flex">
-            <div className="relative w-72">
+          <div className="flex min-w-0 items-center gap-2 md:gap-3">
+            <CommandPalette />
+            <div className="relative hidden w-72 md:block">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-carbon-400" aria-hidden="true" />
               <input
                 aria-label="Buscar no CRM"
@@ -301,7 +306,7 @@ export function CrmLayout() {
                           <div>
                             <p className="px-2 pt-1 pb-2 text-[0.65rem] font-bold uppercase tracking-wider text-carbon-400">Demandas</p>
                             {searchResults.demands.slice(0, 5).map(d => (
-                              <button key={d.id} onClick={() => { setGlobalSearch(""); navigate(`/crm/clientes/${encodeURIComponent(d.client)}`); }} className="w-full flex flex-col gap-1 p-2 rounded hover:bg-carbon-800 text-left transition-colors">
+                              <button key={d.id} onClick={() => { setGlobalSearch(""); navigate(`/crm/demandas/${d.id}`); }} className="w-full flex flex-col gap-1 p-2 rounded hover:bg-carbon-800 text-left transition-colors">
                                 <span className="text-xs font-bold text-carbon-400 uppercase tracking-wider">{d.client}</span>
                                 <span className="text-sm font-bold text-carbon-100 truncate w-full">{d.title}</span>
                               </button>
@@ -314,7 +319,7 @@ export function CrmLayout() {
                 </>
               )}
             </div>
-            <div className="inline-flex items-center gap-2 rounded-card border border-glass-stroke bg-carbon-900/46 px-4 py-3 text-xs font-bold text-carbon-250 shadow-panel">
+            <div className="hidden items-center gap-2 rounded-card border border-glass-stroke bg-carbon-900/46 px-4 py-3 text-xs font-bold text-carbon-250 shadow-panel xl:inline-flex">
               <span className="size-2 rounded-full bg-signal-400 shadow-[0_0_12px_var(--color-signal-400)]" />
               Sistema operacional
             </div>
@@ -354,6 +359,7 @@ export function CrmLayout() {
                       <Inbox className="size-5 text-carbon-400" aria-hidden="true" />
                     )}
                   </div>
+                  <NotificationStatus />
 
                   <div className="max-h-80 overflow-y-auto pr-1">
                     {targetedEvents.length ? (
@@ -367,7 +373,11 @@ export function CrmLayout() {
                           >
                             <button
                               className="flex-1 text-left focus-visible:outline-none"
-                              onClick={() => markEventAsRead(event.id)}
+                              onClick={() => {
+                                markEventAsRead(event.id);
+                                setIsNotificationOpen(false);
+                                if (event.demandId) navigate(`/crm/demandas/${event.demandId}`);
+                              }}
                               type="button"
                             >
                               <span className="flex items-start justify-between gap-3">
@@ -425,6 +435,14 @@ export function CrmLayout() {
               </Link>
             );
           })}
+          <button
+            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-card border border-glass-stroke bg-carbon-900/44 px-3 text-xs font-bold text-carbon-250"
+            onClick={logout}
+            type="button"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            Desconectar
+          </button>
         </nav>
 
         <div className="relative flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
