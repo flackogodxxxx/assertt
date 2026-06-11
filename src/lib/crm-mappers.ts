@@ -17,6 +17,8 @@ type TaskChecklist = {
   pieceInstructions?: string[];
   planningLink?: string;
   videoUrl?: string;
+  deliveries?: import("../contexts/DemandContext").DeliveryItem[];
+  approvedPieces?: number[];
 };
 
 const statusByDemand: Record<DemandStatus, string> = {
@@ -110,7 +112,9 @@ export function mapTaskRowToDemand(row: ProductionTaskRow, clientName: string): 
     status: taskStatusToDemandStatus(row.status),
     statusUpdatedAt: row.updated_at,
     title: row.title,
-    type: taskTypeToDemandType(row.type)
+    type: taskTypeToDemandType(row.type),
+    deliveries: checklist.deliveries,
+    approvedPieces: checklist.approvedPieces
   };
 }
 

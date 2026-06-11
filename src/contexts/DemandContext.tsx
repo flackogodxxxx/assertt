@@ -33,6 +33,7 @@ export interface Comment {
   timestamp?: string; // e.g. "01:24" for video revisions
   endTimestamp?: string;
   referenceImages?: ReferenceImage[];
+  pieceIndex?: number;
 }
 
 export interface ReferenceImage {
@@ -64,6 +65,7 @@ export interface Demand {
   statusUpdatedAt?: string;
   videoUrl?: string; // used for QC review
   deliveries?: DeliveryItem[];
+  approvedPieces?: number[];
 }
 
 interface DemandContextType {
@@ -81,7 +83,8 @@ interface DemandContextType {
     text: string,
     timestamp?: string,
     endTimestamp?: string,
-    referenceImages?: ReferenceImage[]
+    referenceImages?: ReferenceImage[],
+    pieceIndex?: number
   ) => void;
 }
 
@@ -419,7 +422,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             pieceInstructions: currentDemand?.pieceInstructions ?? [],
             planningLink: currentDemand?.planningLink,
             videoUrl: currentDemand?.videoUrl,
-            deliveries: newDeliveries
+            deliveries: newDeliveries,
+            approvedPieces: currentDemand?.approvedPieces
           },
           updated_at: new Date().toISOString()
         })
@@ -455,7 +459,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             pieceInstructions: updates.pieceInstructions ?? currentDemand?.pieceInstructions ?? [],
             planningLink: updates.planningLink ?? currentDemand?.planningLink,
             videoUrl: updates.videoUrl ?? currentDemand?.videoUrl,
-            deliveries: updates.deliveries ?? currentDemand?.deliveries
+            deliveries: updates.deliveries ?? currentDemand?.deliveries,
+            approvedPieces: updates.approvedPieces ?? currentDemand?.approvedPieces
           },
           ...(updates.deliveryLink ? { deliverable: updates.deliveryLink } : {}),
           ...(updates.deadline ? { due_date: updates.deadline.slice(0, 10) } : {}),
@@ -509,7 +514,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     text: string,
     timestamp?: string,
     endTimestamp?: string,
-    referenceImages?: ReferenceImage[]
+    referenceImages?: ReferenceImage[],
+    pieceIndex?: number
   ) => {
     if (!user) return;
     
@@ -524,7 +530,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           createdAt: new Date().toISOString(),
           timestamp,
           endTimestamp,
-          referenceImages
+          referenceImages,
+          pieceIndex
         };
         
         return { ...demand, comments: [...(demand.comments || []), newComment] };
@@ -543,7 +550,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
         timestamp,
         endTimestamp,
-        referenceImages
+        referenceImages,
+        pieceIndex
       };
 
       db
@@ -558,7 +566,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             pieceCount: demand?.pieceCount,
             pieceInstructions: demand?.pieceInstructions,
             videoUrl: demand?.videoUrl,
-            deliveries: demand?.deliveries
+            deliveries: demand?.deliveries,
+            approvedPieces: demand?.approvedPieces
           },
           updated_at: new Date().toISOString()
         })

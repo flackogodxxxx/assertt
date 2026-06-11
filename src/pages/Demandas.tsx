@@ -425,7 +425,7 @@ export function Demandas() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { visibleDemands: allVisibleDemands, addDemand, updateDemandStatus, addComment } = useDemands();
+  const { visibleDemands: allVisibleDemands, addDemand, updateDemandStatus, updateDemand, addComment } = useDemands();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
@@ -1122,8 +1122,8 @@ export function Demandas() {
         <DemandReviewWorkspace
           currentUser={user}
           demand={selectedDemand}
-          onAddComment={(text, timestamp, endTimestamp, referenceImages) => {
-            addComment(selectedDemand.id, text, timestamp, endTimestamp, referenceImages);
+          onAddComment={(text, timestamp, endTimestamp, referenceImages, pieceIndex) => {
+            addComment(selectedDemand.id, text, timestamp, endTimestamp, referenceImages, pieceIndex);
             setSelectedDemand((previous) =>
               previous
                 ? {
@@ -1137,7 +1137,8 @@ export function Demandas() {
                         text,
                         timestamp,
                         endTimestamp,
-                        referenceImages
+                        referenceImages,
+                        pieceIndex
                       }
                     ]
                   }
@@ -1145,13 +1146,30 @@ export function Demandas() {
             );
           }}
           onApprove={() => {
-            updateDemandStatus(selectedDemand.id, "Concluído");
+            const latestDelivery = selectedDemand.deliveries?.[selectedDemand.deliveries.length - 1];
+            const deliveredPieces = latestDelivery?.pieces?.length ? latestDelivery.pieces : Array.from({ length: selectedDemand.pieceCount || 1 }, (_, i) => i);
+            const newApprovedPieces = Array.from(new Set([...(selectedDemand.approvedPieces || []), ...deliveredPieces]));
+            
+            const isFullyApproved = newApprovedPieces.length >= (selectedDemand.pieceCount || 1);
+            
+            if (isFullyApproved) {
+              updateDemandStatus(selectedDemand.id, "Concluído");
+              updateDemand(selectedDemand.id, { approvedPieces: newApprovedPieces });
+              showNotification(
+                "Demanda aprovada",
+                "A demanda foi arquivada no histórico do cliente.",
+                "success"
+              );
+            } else {
+              updateDemandStatus(selectedDemand.id, "Em Andamento");
+              updateDemand(selectedDemand.id, { approvedPieces: newApprovedPieces });
+              showNotification(
+                "Entrega parcialmente aprovada",
+                `Os vídeos entregues foram aprovados. Restam ${selectedDemand.pieceCount! - newApprovedPieces.length} itens pendentes.`,
+                "success"
+              );
+            }
             setSelectedDemand(null);
-            showNotification(
-              "Demanda aprovada",
-              "A demanda foi arquivada no histórico do cliente.",
-              "success"
-            );
           }}
           onClose={() => setSelectedDemand(null)}
           onRequestChanges={() => {

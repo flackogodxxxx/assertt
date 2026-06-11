@@ -23,7 +23,8 @@ type DemandReviewWorkspaceProps = {
     text: string,
     timestamp?: string,
     endTimestamp?: string,
-    referenceImages?: ReferenceImage[]
+    referenceImages?: ReferenceImage[],
+    pieceIndex?: number
   ) => void;
   onApprove: () => void;
   onClose: () => void;
@@ -51,8 +52,15 @@ export function DemandReviewWorkspace({
 }: DemandReviewWorkspaceProps) {
   const [contextOpen, setContextOpen] = useState(false);
   const canDecide = currentUser.role === "Admin" || currentUser.role === "Organizador";
-  const hasCorrections = Boolean(demand.comments?.length);
   const isImage = Boolean(demand.deliveryLink?.match(/\.(jpeg|jpg|gif|png)(\?.*)?$/i));
+
+  const latestDelivery = demand.deliveries?.[demand.deliveries.length - 1];
+  const deliveredPieces = latestDelivery?.pieces?.length ? latestDelivery.pieces : Array.from({ length: demand.pieceCount || 1 }, (_, i) => i);
+  const [activePieceIndex, setActivePieceIndex] = useState<number>(deliveredPieces[0]);
+
+  const activeComments = demand.comments?.filter(c => c.pieceIndex === activePieceIndex || c.pieceIndex === undefined) || [];
+  const hasCorrections = Boolean(activeComments.length);
+  const hasCorrectionsInAnyPiece = Boolean(demand.comments?.length);
 
   const workspace = (
     <div
@@ -96,13 +104,34 @@ export function DemandReviewWorkspace({
         </header>
 
         <div className="grid flex-1 gap-0 xl:grid-cols-[minmax(0,1.45fr)_minmax(22rem,0.85fr)]">
-          <main className="min-w-0 bg-carbon-950/45 p-4 sm:p-6 lg:p-8">
-            <div className="flex min-h-[32rem] items-center justify-center rounded-[0.6rem] border border-carbon-800 bg-black/35 p-3">
+          <main className="min-w-0 bg-carbon-950/45 p-4 sm:p-6 lg:p-8 flex flex-col">
+            {demand.pieceCount && demand.pieceCount > 1 && (
+              <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                {deliveredPieces.map(pieceIndex => (
+                  <button
+                    key={pieceIndex}
+                    onClick={() => setActivePieceIndex(pieceIndex)}
+                    className={cn(
+                      "px-5 py-2.5 rounded-[0.75rem] text-sm font-bold transition-all whitespace-nowrap",
+                      activePieceIndex === pieceIndex 
+                        ? "bg-assert-500/20 text-assert-300 border border-assert-500/30 shadow-[inset_0_0_15px_rgba(216,36,255,0.1)]" 
+                        : "bg-carbon-950/60 text-carbon-400 border border-carbon-800 hover:bg-carbon-900 hover:text-carbon-300"
+                    )}
+                  >
+                    {getDemandScopeLabel(demand.type, false).replace(/^\w/, c => c.toUpperCase())} {pieceIndex + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            <div className="flex flex-1 items-center justify-center rounded-[0.6rem] border border-carbon-800 bg-black/35 p-3">
               {demand.type === "Vídeo" && videoUrl ? (
                 <VideoReviewPlayer
-                  comments={demand.comments || []}
+                  comments={activeComments}
                   demandId={demand.id}
-                  onAddComment={onAddComment}
+                  onAddComment={(text, timestamp, endTimestamp, referenceImages) => 
+                    onAddComment(text, timestamp, endTimestamp, referenceImages, activePieceIndex)
+                  }
                   showSubmitAction={false}
                   videoUrl={videoUrl}
                 />
@@ -142,7 +171,7 @@ export function DemandReviewWorkspace({
                   {demand.type === "Vídeo" ? "Escopo da entrega" : "Linha de correções"}
                 </h3>
                 <span className="ml-auto rounded bg-carbon-950/60 px-2 py-1 text-xs font-bold text-carbon-400">
-                  {demand.comments?.length || 0}
+                  {demand.type === "Vídeo" ? demand.pieceCount || 1 : activeComments.length}
                 </span>
               </div>
               <p className="mt-1 text-xs leading-5 text-carbon-400">
@@ -156,12 +185,33 @@ export function DemandReviewWorkspace({
               {demand.type === "Vídeo" ? (
                 <ol className="space-y-3">
                   {Array.from({ length: demand.pieceCount || 1 }, (_, index) => (
-                    <li className="flex gap-3 rounded-card border border-carbon-800 bg-carbon-950/45 p-3" key={index}>
-                      <span className="grid size-7 shrink-0 place-items-center rounded bg-accent-400/12 text-xs font-bold text-accent-300">
+                    <li 
+                      className={cn(
+                        "flex gap-3 rounded-card border p-3 cursor-pointer transition-colors",
+                        activePieceIndex === index 
+                          ? "border-assert-500/50 bg-assert-500/10" 
+                          : "border-carbon-800 bg-carbon-950/45 hover:bg-carbon-900/60",
+                        !deliveredPieces.includes(index) && "opacity-40 grayscale"
+                      )} 
+                      key={index}
+                      onClick={() => deliveredPieces.includes(index) && setActivePieceIndex(index)}
+                    >
+                      <span className={cn(
+                        "grid size-7 shrink-0 place-items-center rounded text-xs font-bold",
+                        activePieceIndex === index
+                          ? "bg-assert-400/20 text-assert-300"
+                          : "bg-accent-400/12 text-accent-300"
+                      )}>
                         {index + 1}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-carbon-200">{getDemandScopeLabel(demand.type, false).replace(/^\w/, c => c.toUpperCase())} {index + 1}</p>
+                        <p className={cn(
+                          "text-xs font-bold",
+                          activePieceIndex === index ? "text-assert-100" : "text-carbon-200"
+                        )}>
+                          {getDemandScopeLabel(demand.type, false).replace(/^\w/, c => c.toUpperCase())} {index + 1}
+                          {!deliveredPieces.includes(index) && " (Não entregue)"}
+                        </p>
                         <p className="mt-1 text-sm leading-5 text-carbon-400">
                           {demand.pieceInstructions?.[index] || "Sem orientação específica."}
                         </p>
@@ -171,8 +221,8 @@ export function DemandReviewWorkspace({
                 </ol>
               ) : (
                 <div className="space-y-3">
-                  {demand.comments?.length ? (
-                    demand.comments.map((comment) => (
+                  {activeComments.length ? (
+                    activeComments.map((comment) => (
                       <article className="rounded-card border border-carbon-800 bg-carbon-950/45 p-4" key={comment.id}>
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-xs font-bold text-carbon-200">Comentário</span>
@@ -243,9 +293,9 @@ export function DemandReviewWorkspace({
           <footer className="sticky bottom-0 flex flex-col gap-3 border-t border-glass-stroke bg-carbon-900/96 px-5 py-4 sm:flex-row sm:items-center sm:justify-end lg:px-7">
             <button
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-assert-300/35 bg-assert-500/10 px-5 text-sm font-bold text-assert-300 transition hover:bg-assert-500/18 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={!hasCorrections}
+              disabled={!hasCorrectionsInAnyPiece}
               onClick={onRequestChanges}
-              title={!hasCorrections ? "Registre ao menos uma correção antes de solicitar ajustes" : undefined}
+              title={!hasCorrectionsInAnyPiece ? "Registre ao menos uma correção antes de solicitar ajustes" : undefined}
               type="button"
             >
               <RotateCcw className="size-4" />
