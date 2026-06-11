@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { AlertCircle, Bell, CheckCircle2, X } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { notificationRowToEvent } from "../lib/crm-mappers";
-import { playNotificationTone, shouldAlertForNotification } from "../lib/notification-realtime";
+import { playNotificationTone, shouldAlertForNotification, showNativeNotification } from "../lib/notification-realtime";
 import { supabase } from "../lib/supabase";
 import type { NotificationRow } from "../lib/supabase-types";
 
@@ -210,6 +210,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (audioContextRef.current?.state === "suspended") {
           void audioContextRef.current.resume();
         }
+        
+        if (typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+          void Notification.requestPermission();
+        }
       } catch {
         return;
       }
@@ -234,6 +238,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
         hasChanges = true;
         showNotification(event.title, event.message, event.type);
+        void playNotificationTone(audioContextRef.current);
+        void showNativeNotification(event.title, event.message);
 
         return { ...event, deliveredTo: [...deliveredTo, user.id] };
       });
@@ -286,6 +292,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           });
           showNotification(event.title, event.message, event.type);
           void playNotificationTone(audioContextRef.current);
+          void showNativeNotification(event.title, event.message);
         }
       )
       .on(

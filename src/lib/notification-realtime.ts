@@ -57,3 +57,21 @@ export async function playNotificationTone(context?: AudioContext) {
     return false;
   }
 }
+export async function showNativeNotification(title: string, body: string) {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return;
+  }
+
+  try {
+    if (Notification.permission === "granted") {
+      new Notification(title, { body });
+    } else if (Notification.permission !== "denied") {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        new Notification(title, { body });
+      }
+    }
+  } catch (error) {
+    console.error("Failed to show native notification:", error);
+  }
+}
