@@ -1003,7 +1003,10 @@ export function Demandas() {
       )}
 
       {promptDemandForReview && (
-        <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-carbon-950/82 p-4 backdrop-blur-xl animate-in fade-in">
+        <div 
+          className="fixed inset-0 grid place-items-center overflow-y-auto bg-carbon-950/82 p-4 backdrop-blur-xl animate-in fade-in"
+          style={{ zIndex: 9999 }}
+        >
           <form
             className="crm-modal-panel relative my-6 w-full max-w-md rounded-[1.2rem] border border-glass-stroke bg-carbon-900/94 p-6 shadow-panel-deep backdrop-blur-2xl"
             onSubmit={submitLinkAndReview}
