@@ -2,6 +2,7 @@ import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from
 import {
   ArrowRight,
   Calendar,
+  Check,
   CheckCircle2,
   Clock3,
   ExternalLink,
@@ -991,26 +992,49 @@ export function Demandas() {
             onSubmit={submitLinkAndReview}
           >
             <div className="absolute inset-x-8 top-0 h-px neon-divider" aria-hidden="true" />
-            <div className="grid size-12 place-items-center rounded-card border border-accent-300/30 bg-accent-400/10 text-accent-300">
-              <LinkIcon className="size-6" aria-hidden="true" />
+            <div className="grid size-14 place-items-center rounded-[1rem] border border-assert-300/30 bg-gradient-to-br from-assert-500/20 to-assert-500/5 text-assert-300 shadow-[0_0_30px_rgba(216,36,255,0.15)] ring-1 ring-white/5">
+              <Send className="size-6" aria-hidden="true" />
             </div>
-            <h3 className="mt-5 text-2xl font-bold text-carbon-50">Enviar para revisão</h3>
-            <p className="mt-2 text-sm leading-6 text-carbon-300">
+            <h3 className="mt-6 text-2xl font-black tracking-tight text-carbon-50">Enviar para revisão</h3>
+            <p className="mt-2 text-sm leading-relaxed text-carbon-300">
               Insira o link da pasta, Drive, Frame.io ou arquivo final para o admin avaliar.
             </p>
 
             {promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 && (
-              <div className="mt-5 space-y-2">
-                <p className="text-sm font-bold text-carbon-200">Quais {getDemandScopeLabel(promptDemandForReview.type, true)} estão sendo entregues?</p>
-                <div className="grid gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+              <div className="mt-6 space-y-3">
+                <p className="text-sm font-bold tracking-wide text-carbon-200">
+                  Selecione os itens para entrega
+                </p>
+                <div className="grid gap-3 max-h-56 overflow-y-auto pr-2 custom-scrollbar">
                   {Array.from({ length: promptDemandForReview.pieceCount }).map((_, i) => {
                     const alreadyDelivered = promptDemandForReview.deliveries?.some(d => d.pieces?.includes(i));
+                    const isSelected = selectedPiecesForReview.includes(i) || !!alreadyDelivered;
                     return (
-                      <label key={i} className={`flex items-center gap-3 p-2 rounded border border-carbon-800 ${alreadyDelivered ? 'opacity-50 cursor-not-allowed bg-carbon-900' : 'cursor-pointer hover:bg-carbon-800'}`}>
+                      <label 
+                        key={i} 
+                        className={cn(
+                          "group relative flex items-center gap-4 rounded-[1rem] border p-4 transition-all duration-300",
+                          alreadyDelivered 
+                            ? "border-carbon-800 bg-carbon-950/40 opacity-50 cursor-not-allowed" 
+                            : isSelected
+                              ? "border-assert-400/50 bg-assert-400/10 shadow-[inset_0_0_20px_rgba(216,36,255,0.05)] cursor-pointer"
+                              : "border-glass-stroke bg-carbon-950/40 hover:border-carbon-600 hover:bg-carbon-900/60 cursor-pointer"
+                        )}
+                      >
+                        <div className={cn(
+                          "relative flex size-5 shrink-0 items-center justify-center rounded-md border transition-all duration-300",
+                          alreadyDelivered
+                            ? "border-carbon-700 bg-carbon-800 text-carbon-400"
+                            : isSelected
+                              ? "border-assert-400 bg-assert-400 text-carbon-950 shadow-[0_0_10px_rgba(216,36,255,0.4)]"
+                              : "border-carbon-600 bg-carbon-950 group-hover:border-carbon-500"
+                        )}>
+                          {isSelected && <Check className="size-3.5" strokeWidth={3} />}
+                        </div>
                         <input 
                           type="checkbox" 
                           disabled={alreadyDelivered}
-                          checked={selectedPiecesForReview.includes(i) || !!alreadyDelivered}
+                          checked={isSelected}
                           onChange={(e) => {
                             if (e.target.checked) {
                               setSelectedPiecesForReview(prev => [...prev, i]);
@@ -1018,12 +1042,22 @@ export function Demandas() {
                               setSelectedPiecesForReview(prev => prev.filter(p => p !== i));
                             }
                           }}
-                          className="accent-accent-400 size-4 rounded bg-carbon-950 border-carbon-800"
+                          className="sr-only"
                         />
-                        <span className="text-sm font-medium text-carbon-200">
-                          {getDemandScopeLabel(promptDemandForReview.type, false).replace(/^\w/, c => c.toUpperCase())} {i + 1} {promptDemandForReview.pieceInstructions?.[i] ? `- ${promptDemandForReview.pieceInstructions[i]}` : ''}
-                          {alreadyDelivered && " (Já entregue)"}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className={cn(
+                            "text-sm font-bold transition-colors",
+                            isSelected ? "text-carbon-50" : "text-carbon-200"
+                          )}>
+                            {getDemandScopeLabel(promptDemandForReview.type, false).replace(/^\w/, c => c.toUpperCase())} {i + 1}
+                          </span>
+                          {promptDemandForReview.pieceInstructions?.[i] && (
+                            <span className="text-xs text-carbon-400 mt-0.5 line-clamp-1">{promptDemandForReview.pieceInstructions[i]}</span>
+                          )}
+                          {alreadyDelivered && (
+                            <span className="text-xs text-signal-400 font-medium mt-0.5 flex items-center gap-1"><CheckCircle2 className="size-3" /> Entregue</span>
+                          )}
+                        </div>
                       </label>
                     );
                   })}
@@ -1031,28 +1065,41 @@ export function Demandas() {
               </div>
             )}
 
-            <input
-              className={cn(fieldClass, "mt-5")}
-              onChange={(event) => setDeliveryDesc(event.target.value)}
-              placeholder={promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 ? "Observações (opcional)" : `O que está sendo entregue? (ex: ${getDemandScopeLabel(promptDemandForReview.type, false).replace(/^\w/, c => c.toUpperCase())} 1 e 2)`}
-              required={!promptDemandForReview.pieceCount || promptDemandForReview.pieceCount <= 1}
-              type="text"
-              value={deliveryDesc}
-            />
+            <div className="mt-6 space-y-4">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-carbon-500 group-focus-within:text-assert-400 transition-colors">
+                  <MessageSquare className="size-4" />
+                </div>
+                <input
+                  className={cn(fieldClass, "pl-11 border-carbon-800 bg-carbon-950/50 focus:bg-carbon-900/80")}
+                  onChange={(event) => setDeliveryDesc(event.target.value)}
+                  placeholder={promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 ? "Observações (opcional)" : `O que está sendo entregue? (ex: ${getDemandScopeLabel(promptDemandForReview.type, false).replace(/^\w/, c => c.toUpperCase())} 1 e 2)`}
+                  required={!promptDemandForReview.pieceCount || promptDemandForReview.pieceCount <= 1}
+                  type="text"
+                  value={deliveryDesc}
+                />
+              </div>
 
-            <input
-              className={cn(fieldClass, "mt-3")}
-              onChange={(event) => setDeliveryLink(event.target.value)}
-              placeholder="https://... (Link da entrega)"
-              required
-              type="url"
-              value={deliveryLink}
-            />
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-carbon-500 group-focus-within:text-assert-400 transition-colors">
+                  <LinkIcon className="size-4" />
+                </div>
+                <input
+                  className={cn(fieldClass, "pl-11 border-carbon-800 bg-carbon-950/50 focus:bg-carbon-900/80")}
+                  onChange={(event) => setDeliveryLink(event.target.value)}
+                  placeholder="https://... (Link Frame.io, Drive, etc)"
+                  required
+                  type="url"
+                  value={deliveryLink}
+                />
+              </div>
+            </div>
 
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
+                className="hover:bg-carbon-800"
                 onClick={() => {
                   setPromptDemandForReview(null);
                   setDeliveryLink("");
@@ -1062,9 +1109,9 @@ export function Demandas() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" variant="outline">
+              <Button type="submit" className="bg-assert-500 hover:bg-assert-400 text-carbon-950 shadow-[0_0_15px_rgba(216,36,255,0.3)]">
                 Enviar revisão
-                <ArrowRight className="size-5" aria-hidden="true" />
+                <ArrowRight className="size-5 ml-1" aria-hidden="true" />
               </Button>
             </div>
           </form>
