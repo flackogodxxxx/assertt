@@ -321,39 +321,6 @@ function DemandCard({
           </span>
         )}
 
-        {demand.type === "Vídeo" && user?.role === "Video Maker" && demand.status !== "Concluído" && !demand.caption && (
-          <button
-            className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-card border border-assert-300/30 bg-assert-500/10 px-3 text-xs font-bold text-assert-300 transition-all duration-300 hover:scale-105 hover:bg-assert-500/20 active:scale-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-assert-300"
-            onClick={async (e) => {
-              e.stopPropagation();
-              setIsGenerating(true);
-              try {
-                const result = await generateDemandCaption(demand);
-                const caption = result.caption || result.transcription;
-                if (!caption) {
-                  throw new Error("Gemini nao retornou legenda.");
-                }
-                updateDemand(demand.id, {
-                  caption
-                });
-                showNotification("Legenda gerada", "A legenda foi anexada a demanda.", "success");
-              } catch (error) {
-                showNotification(
-                  "IA indisponivel",
-                  error instanceof Error ? error.message : "Nao foi possivel gerar a legenda agora.",
-                  "warning"
-                );
-              } finally {
-                setIsGenerating(false);
-              }
-            }}
-            disabled={isGenerating}
-            type="button"
-          >
-            <Sparkles className={cn("size-4", isGenerating && "animate-pulse")} aria-hidden="true" />
-            {isGenerating ? "Gerando..." : "Gerar Legenda"}
-          </button>
-        )}
       </div>
     </article>
   );
