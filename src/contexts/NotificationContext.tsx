@@ -31,6 +31,7 @@ interface NotificationContextType {
   unreadCount: number;
   showNotification: (title: string, message: string, type?: NotificationType) => void;
   removeNotification: (id: string) => void;
+  deleteNotification: (id: string) => void;
   markEventAsRead: (id: string) => void;
   markAllEventsAsRead: () => void;
 }
@@ -154,6 +155,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return { ...event, seenBy: [...event.seenBy, user.id] };
       });
 
+      persistEvents(updatedEvents);
+      setEvents(updatedEvents);
+    },
+    [refreshRemoteEvents, remoteEnabled, user]
+  );
+
+  const deleteNotification = useCallback(
+    (id: string) => {
+      if (!user) return;
+      if (remoteEnabled) {
+        db.from("notifications").delete().eq("id", id).then(() => refreshRemoteEvents());
+        return;
+      }
+      const updatedEvents = getStoredNotificationEvents().filter((event) => event.id !== id);
       persistEvents(updatedEvents);
       setEvents(updatedEvents);
     },
@@ -339,6 +354,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         markEventAsRead,
         notifications,
         removeNotification,
+        deleteNotification,
         showNotification,
         targetedEvents,
         unreadCount

@@ -63,18 +63,40 @@ export async function showNativeNotification(title: string, body: string) {
   }
 
   const workOsTitle = `WorkOS • ${title}`;
+  const options: NotificationOptions = {
+    body,
+    icon: '/assets/mkt-cropped.png'
+  };
+
+  const spawnNotification = () => {
+    try {
+      const n = new Notification(workOsTitle, options);
+      n.onclick = () => {
+        window.focus();
+        n.close();
+      };
+    } catch (err) {
+      console.error("Failed to spawn notification directly:", err);
+      if (navigator.serviceWorker) {
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          if (regs.length > 0) {
+            regs[0].showNotification(workOsTitle, options);
+          }
+        }).catch(console.error);
+      }
+    }
+  };
 
   try {
     if (Notification.permission === "granted") {
-      new Notification(workOsTitle, { body });
+      spawnNotification();
     } else if (Notification.permission !== "denied") {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        new Notification(workOsTitle, { body });
+        spawnNotification();
       }
     }
   } catch (error) {
-    console.error("Failed to show native notification:", error);
+    console.error("Failed to request native notification:", error);
   }
 }
-

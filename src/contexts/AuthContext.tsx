@@ -189,6 +189,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const mappedUser = mapProfileToUser(profile);
           setUser(mappedUser);
           localStorage.setItem("crm_user", JSON.stringify(mappedUser));
+          
+          saveGlobalStatus(mappedUser.id, "ONLINE");
+          db.from("profiles").update({ status: "ONLINE", updated_at: new Date().toISOString() }).eq("email", mappedUser.email).then();
+          
           return true;
         }
       }
@@ -210,12 +214,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setUser(userToSave);
       localStorage.setItem("crm_user", JSON.stringify(userToSave));
+      
+      saveGlobalStatus(userToSave.id, "ONLINE");
+      db.from("profiles").update({ status: "ONLINE", updated_at: new Date().toISOString() }).eq("email", userToSave.email).then();
+      
       return true;
     }
     return false;
   };
 
   const logout = () => {
+    if (user) {
+      saveGlobalStatus(user.id, "OFFLINE");
+      db.from("profiles").update({ status: "OFFLINE", updated_at: new Date().toISOString() }).eq("email", user.email).then();
+    }
     setUser(null);
     localStorage.removeItem("crm_user");
     supabase.auth.signOut();

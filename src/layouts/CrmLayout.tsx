@@ -17,7 +17,8 @@ import {
   ChevronDown,
   Sparkles,
   UploadCloud,
-  Brain
+  Brain,
+  X
 } from "lucide-react";
 import { type Role, useAuth, getGlobalStatus, saveGlobalStatus, type UserStatus } from "../contexts/AuthContext";
 import { useNotification } from "../contexts/NotificationContext";
@@ -134,7 +135,7 @@ function StatusSelector({ userId }: { userId: string }) {
 
 export function CrmLayout() {
   const { user, logout } = useAuth();
-  const { markAllEventsAsRead, markEventAsRead, targetedEvents, unreadCount } = useNotification();
+  const { markAllEventsAsRead, markEventAsRead, deleteNotification, targetedEvents, unreadCount } = useNotification();
   const location = useLocation();
   const navigate = useNavigate();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
@@ -360,22 +361,33 @@ export function CrmLayout() {
                         const isUnread = !event.seenBy.includes(user.id);
 
                         return (
-                          <button
-                            className="mb-2 grid w-full gap-2 rounded-card border border-carbon-800/80 bg-carbon-900/50 p-3 text-left transition-all duration-300 hover:border-accent-300/48 hover:bg-carbon-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300"
+                          <div
                             key={event.id}
-                            onClick={() => markEventAsRead(event.id)}
-                            type="button"
+                            className="mb-2 flex w-full gap-2 rounded-card border border-carbon-800/80 bg-carbon-900/50 p-3 transition-all duration-300 hover:border-accent-300/48 hover:bg-carbon-900 group"
                           >
-                            <span className="flex items-start justify-between gap-3">
-                              <span className="text-sm font-bold text-carbon-50">{event.title}</span>
-                              {isUnread ? (
-                                <span className="mt-1 size-2 rounded-full bg-assert-300 shadow-[0_0_12px_var(--color-assert-300)]" />
-                              ) : (
-                                <CheckCircle2 className="mt-0.5 size-4 text-signal-300" aria-hidden="true" />
-                              )}
-                            </span>
-                            <span className="text-xs leading-5 text-carbon-300">{event.message}</span>
-                          </button>
+                            <button
+                              className="flex-1 text-left focus-visible:outline-none"
+                              onClick={() => markEventAsRead(event.id)}
+                              type="button"
+                            >
+                              <span className="flex items-start justify-between gap-3">
+                                <span className="text-sm font-bold text-carbon-50">{event.title}</span>
+                                {isUnread ? (
+                                  <span className="mt-1 size-2 shrink-0 rounded-full bg-assert-300 shadow-[0_0_12px_var(--color-assert-300)]" />
+                                ) : (
+                                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-signal-300" aria-hidden="true" />
+                                )}
+                              </span>
+                              <span className="text-xs leading-5 text-carbon-300 block">{event.message}</span>
+                            </button>
+                            <button
+                              aria-label="Apagar notificação"
+                              className="shrink-0 self-start p-1 text-carbon-500 hover:text-assert-400 opacity-0 group-hover:opacity-100 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-assert-400 rounded"
+                              onClick={() => deleteNotification(event.id)}
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </div>
                         );
                       })
                     ) : (

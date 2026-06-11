@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { USERS_DB, type User, useAuth } from "./AuthContext";
 import { appendNotificationEvent, type NotificationEvent, useNotification } from "./NotificationContext";
 import { getAllClients } from "../data/clients";
@@ -290,10 +290,15 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     };
   }, [remoteEnabled, user, syncDemands]);
 
+  const syncDemandsRef = useRef(syncDemands);
   useEffect(() => {
-    if (!user) return;
+    syncDemandsRef.current = syncDemands;
+  }, [syncDemands]);
 
-    const channelName = `crm-production-tasks-${Date.now()}`;
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channelName = `crm-production-tasks`;
     const channel = supabase
       .channel(channelName)
       .on(
@@ -305,7 +310,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           }
 
           const remoteDemands = await fetchRemoteDemands();
-          syncDemands(remoteDemands);
+          syncDemandsRef.current(remoteDemands);
         }
       )
       .subscribe((status) => {
@@ -315,7 +320,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, syncDemands]);
+  }, [user?.id]);
 
   const addDemand = (newDemand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt" | "deliveries">) => {
     const demand: Demand = {
