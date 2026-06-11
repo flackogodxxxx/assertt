@@ -62,16 +62,19 @@ export async function showNativeNotification(title: string, body: string) {
     return;
   }
 
+  const workOsTitle = `WorkOS • ${title}`;
+
   try {
     if (Notification.permission === "granted") {
-      new Notification(title, { body });
+      new Notification(workOsTitle, { body });
     } else if (Notification.permission !== "denied") {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        new Notification(title, { body });
+        new Notification(workOsTitle, { body });
       }
     }
   } catch (error) {
     console.error("Failed to show native notification:", error);
   }
 }
+

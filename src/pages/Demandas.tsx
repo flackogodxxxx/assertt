@@ -466,7 +466,8 @@ export function Demandas() {
   const [newPieceInstructions, setNewPieceInstructions] = useState("");
   const [deliveryLink, setDeliveryLink] = useState("");
   const [deliveryDesc, setDeliveryDesc] = useState("");
-  const [promptLinkFor, setPromptLinkFor] = useState<string | null>(null);
+  const [promptDemandForReview, setPromptDemandForReview] = useState<Demand | null>(null);
+  const [selectedPiecesForReview, setSelectedPiecesForReview] = useState<number[]>([]);
   const [selectedDemand, setSelectedDemand] = useState<Demand | null>(null);
   const [newComment, setNewComment] = useState("");
 
@@ -478,7 +479,7 @@ export function Demandas() {
       if (e.key === "Escape") {
         setIsModalOpen(false);
         setSelectedDemand(null);
-        setPromptLinkFor(null);
+        setPromptDemandForReview(null);
       }
     };
     window.addEventListener("keydown", handleEsc);
@@ -591,7 +592,8 @@ export function Demandas() {
     }
 
     if (newStatus === "Em Revisão") {
-      setPromptLinkFor(id);
+      const demand = visibleDemands.find(d => d.id === id);
+      if (demand) setPromptDemandForReview(demand);
       return;
     }
 
@@ -601,15 +603,31 @@ export function Demandas() {
   const submitLinkAndReview = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!promptLinkFor || !deliveryLink.trim() || !deliveryDesc.trim()) {
-      showNotification("Informações ausentes", "Preencha o link e o que está sendo entregue.", "warning");
+    if (!promptDemandForReview || !deliveryLink.trim()) {
+      showNotification("Informações ausentes", "Preencha o link da entrega.", "warning");
+      return;
+    }
+    
+    let finalDesc = deliveryDesc.trim();
+    if (promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 && selectedPiecesForReview.length > 0) {
+      finalDesc = `Peça(s) entregue(s): ${selectedPiecesForReview.map(p => p + 1).join(", ")}`;
+      if (deliveryDesc.trim()) {
+        finalDesc += ` - ${deliveryDesc.trim()}`;
+      }
+    } else if (!finalDesc) {
+      showNotification("Informações ausentes", "Preencha a descrição da entrega.", "warning");
       return;
     }
 
-    updateDemandStatus(promptLinkFor, "Em Revisão", { url: deliveryLink, description: deliveryDesc });
-    setPromptLinkFor(null);
+    updateDemandStatus(promptDemandForReview.id, "Em Revisão", { 
+      url: deliveryLink, 
+      description: finalDesc,
+      pieces: selectedPiecesForReview 
+    });
+    setPromptDemandForReview(null);
     setDeliveryLink("");
     setDeliveryDesc("");
+    setSelectedPiecesForReview([]);
   };
 
   const cardsByStatus = (status: DemandStatus) => visibleDemands.filter((demand) => demand.status === status);
@@ -963,7 +981,7 @@ export function Demandas() {
         </div>
       )}
 
-      {promptLinkFor && (
+      {promptDemandForReview && (
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-carbon-950/82 p-4 backdrop-blur-xl animate-in fade-in">
           <form
             className="crm-modal-panel relative my-6 w-full max-w-md rounded-[1.2rem] border border-glass-stroke bg-carbon-900/94 p-6 shadow-panel-deep backdrop-blur-2xl"
@@ -978,11 +996,43 @@ export function Demandas() {
               Insira o link da pasta, Drive, Frame.io ou arquivo final para o admin avaliar.
             </p>
 
+            {promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 && (
+              <div className="mt-5 space-y-2">
+                <p className="text-sm font-bold text-carbon-200">Quais peças estão sendo entregues?</p>
+                <div className="grid gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                  {Array.from({ length: promptDemandForReview.pieceCount }).map((_, i) => {
+                    const alreadyDelivered = promptDemandForReview.deliveries?.some(d => d.pieces?.includes(i));
+                    return (
+                      <label key={i} className={`flex items-center gap-3 p-2 rounded border border-carbon-800 ${alreadyDelivered ? 'opacity-50 cursor-not-allowed bg-carbon-900' : 'cursor-pointer hover:bg-carbon-800'}`}>
+                        <input 
+                          type="checkbox" 
+                          disabled={alreadyDelivered}
+                          checked={selectedPiecesForReview.includes(i) || !!alreadyDelivered}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedPiecesForReview(prev => [...prev, i]);
+                            } else {
+                              setSelectedPiecesForReview(prev => prev.filter(p => p !== i));
+                            }
+                          }}
+                          className="accent-accent-400 size-4 rounded bg-carbon-950 border-carbon-800"
+                        />
+                        <span className="text-sm font-medium text-carbon-200">
+                          {promptDemandForReview.type === "Vídeo" ? "Vídeo" : "Arte"} {i + 1} {promptDemandForReview.pieceInstructions?.[i] ? `- ${promptDemandForReview.pieceInstructions[i]}` : ''}
+                          {alreadyDelivered && " (Já entregue)"}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <input
               className={cn(fieldClass, "mt-5")}
               onChange={(event) => setDeliveryDesc(event.target.value)}
-              placeholder="O que está sendo entregue? (ex: Vídeo 1 e 2)"
-              required
+              placeholder={promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 ? "Observações (opcional)" : "O que está sendo entregue? (ex: Vídeo 1 e 2)"}
+              required={!promptDemandForReview.pieceCount || promptDemandForReview.pieceCount <= 1}
               type="text"
               value={deliveryDesc}
             />
@@ -998,11 +1048,13 @@ export function Demandas() {
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button
-                variant="ghost"
+                type="button"
+                variant="outline"
                 onClick={() => {
-                  setPromptLinkFor(null);
+                  setPromptDemandForReview(null);
                   setDeliveryLink("");
                   setDeliveryDesc("");
+                  setSelectedPiecesForReview([]);
                 }}
               >
                 Cancelar
@@ -1167,7 +1219,7 @@ export function Demandas() {
                       onSendCorrections={() => {
                         updateDemandStatus(selectedDemand.id, "Em Andamento");
                         setSelectedDemand(null);
-                        showNotification("Correções enviadas", "O Video Maker foi notificado sobre os ajustes e a demanda voltou para produção.", "info");
+                        showNotification("🔁 Ajustes solicitados", "Anotações enviadas! O responsável já foi notificado para corrigir.", "info");
                       }}
                     />
                   ) : (
@@ -1180,14 +1232,14 @@ export function Demandas() {
                       <Button onClick={() => {
                         updateDemandStatus(selectedDemand.id, "Concluído");
                         setSelectedDemand(null);
-                        showNotification("Aprovado", "Demanda marcada como concluída.", "success");
+                        showNotification("🎉 Demanda Concluída", "Material aprovado e finalizado com sucesso!", "success");
                       }} className="bg-assert-500 hover:bg-assert-400 text-carbon-950">
                         <CheckCircle2 className="size-4 mr-2" /> Aprovar Demanda
                       </Button>
                       <Button variant="outline" onClick={() => {
                         updateDemandStatus(selectedDemand.id, "Em Andamento");
                         setSelectedDemand(null);
-                        showNotification("Aprovação Parcial", "Entregas atuais aprovadas. A demanda retornou para produção.", "info");
+                        showNotification("✅ Entrega parcial aprovada", "Parte do material já foi validado! Resta finalizar o restante.", "info");
                       }}>
                         Aprovar Parcial (Voltar p/ Produção)
                       </Button>

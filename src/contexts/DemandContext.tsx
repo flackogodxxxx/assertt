@@ -21,6 +21,7 @@ export interface DeliveryItem {
   id: string;
   url: string;
   description: string;
+  pieces?: number[];
   createdAt: string;
 }
 
@@ -225,8 +226,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           const assigneeName =
             USERS_DB.find((assignee) => assignee.id === newDemand.assigneeIds[0])?.name || "Responsável";
           showNotification(
-            "Entrega para revisão",
-            `${assigneeName} enviou o material de ${newDemand.client} para aprovação.`,
+            "👀 Material pronto para revisão",
+            `${assigneeName} acabou de entregar arquivos de ${newDemand.client}.`,
             "success"
           );
         }
@@ -332,7 +333,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     if (!remoteEnabled) {
       publishAssignmentNotifications(demand);
     }
-    showNotification("Demanda enviada", "O responsável recebeu a notificação e o admin já pode acompanhar.", "success");
+    showNotification("🚀 Nova missão na operação", "A demanda foi enviada para o responsável e já está no seu radar.", "success");
 
     if (remoteEnabled) {
       ensureRemoteClientId(newDemand.client, newDemand.assigneeIds[0] || user?.id || "admin-1")
@@ -346,10 +347,10 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           }
 
           const notifications = (data || []).map((task: any) => ({
-            body: `Nova demanda atribuida: ${newDemand.title} (${formatDemandScope(newDemand.pieceCount || 1, newDemand.type)})`,
+            body: `[${newDemand.client}] ${newDemand.title} acaba de cair na sua mesa. (${formatDemandScope(newDemand.pieceCount || 1, newDemand.type)})`,
             task_id: task.id,
             target_user_id: task.assignee_id,
-            title: "Nova demanda atribuida",
+            title: "🚀 Nova missão na operação",
             type: "info"
           }));
 

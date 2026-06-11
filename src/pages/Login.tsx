@@ -33,6 +33,10 @@ export function Login() {
     event.preventDefault();
     setIsLoading(true);
 
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+      void Notification.requestPermission();
+    }
+
     const success = await login(email, password);
 
     if (!success) {
@@ -46,6 +50,9 @@ export function Login() {
   };
 
   const handleEnterCrm = () => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+      void Notification.requestPermission();
+    }
     setIsExiting(true);
     setTimeout(() => {
       navigate("/crm");
