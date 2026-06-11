@@ -48,9 +48,13 @@ export function Equipe() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    const handleStatusUpdate = () => setTick(t => t + 1);
-    window.addEventListener("crm-status-updated", handleStatusUpdate);
-    return () => window.removeEventListener("crm-status-updated", handleStatusUpdate);
+    const handleUpdate = () => setTick(t => t + 1);
+    window.addEventListener("crm-status-updated", handleUpdate);
+    window.addEventListener("crm-avatar-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("crm-status-updated", handleUpdate);
+      window.removeEventListener("crm-avatar-updated", handleUpdate);
+    };
   }, []);
 
   const filteredTeam = useMemo(() => {

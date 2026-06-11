@@ -21,7 +21,7 @@ function PersonBadge({ label, tone }: { label?: string; tone: "design" | "video"
   return (
     <span
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-full border font-display text-xs font-bold shadow-panel",
+        "relative size-8 shrink-0 overflow-hidden rounded-full border font-display text-xs font-bold shadow-panel",
         tone === "design"
           ? "border-assert-300/32 bg-assert-500/12 text-assert-300"
           : "border-signal-300/32 bg-signal-400/10 text-signal-300"
@@ -29,9 +29,9 @@ function PersonBadge({ label, tone }: { label?: string; tone: "design" | "video"
       title={label || "Sem responsável"}
     >
       {avatar ? (
-        <img src={avatar} alt={label} className="h-full w-full rounded-full object-cover" />
+        <img src={avatar} alt={label} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        initials
+        <span className="grid size-full place-items-center">{initials}</span>
       )}
     </span>
   );

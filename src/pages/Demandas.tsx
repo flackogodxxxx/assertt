@@ -99,7 +99,8 @@ function ResourceLink({
 }
 
 function getReviewVideoUrl(demand: Demand) {
-  const link = demand.videoUrl || demand.deliveryLink || demand.dropboxLink;
+  const latestDelivery = demand.deliveries?.[demand.deliveries.length - 1]?.url;
+  const link = demand.videoUrl || latestDelivery || demand.deliveryLink || demand.dropboxLink;
 
   if (!link) {
     return undefined;
@@ -243,14 +244,14 @@ function DemandCard({
           {assignees.length ? (
             assignees.map((assignee) => (
               <span
-                className="grid size-10 place-items-center overflow-hidden rounded-full border border-glass-stroke bg-carbon-900 font-display text-xs font-bold text-carbon-100 shadow-panel"
+                className="relative size-10 shrink-0 overflow-hidden rounded-full border border-glass-stroke bg-carbon-900 font-display text-xs font-bold text-carbon-100 shadow-panel"
                 key={assignee!.id}
                 title={assignee!.name}
               >
                 {getGlobalAvatar(assignee!.email) ? (
-                  <img src={getGlobalAvatar(assignee!.email)} alt={assignee!.name} className="h-full w-full object-cover" />
+                  <img src={getGlobalAvatar(assignee!.email)} alt={assignee!.name} className="absolute inset-0 h-full w-full object-cover" />
                 ) : (
-                  initials(assignee!.name)
+                  <span className="grid size-full place-items-center">{initials(assignee!.name)}</span>
                 )}
               </span>
             ))
@@ -464,6 +465,7 @@ export function Demandas() {
   const [newPieceCount, setNewPieceCount] = useState(1);
   const [newPieceInstructions, setNewPieceInstructions] = useState("");
   const [deliveryLink, setDeliveryLink] = useState("");
+  const [deliveryDesc, setDeliveryDesc] = useState("");
   const [promptLinkFor, setPromptLinkFor] = useState<string | null>(null);
   const [selectedDemand, setSelectedDemand] = useState<Demand | null>(null);
   const [newComment, setNewComment] = useState("");
@@ -536,8 +538,17 @@ export function Demandas() {
   const handleCreateDemand = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!newTitle || !newClient || !newDropboxLink || !newPlanningLink) {
-      showNotification("Informações obrigatórias", "Inclua cliente, Dropbox e planejamento antes de enviar.", "warning");
+    if (!newTitle || !newClient || !newDropboxLink) {
+      showNotification("Informações obrigatórias", "Preencha o título, cliente e link do Dropbox.", "warning");
+      return;
+    }
+    
+    if (!newPlanningLink.trim() && !newDesc.trim()) {
+      showNotification(
+        "Informações obrigatórias",
+        "É obrigatório fornecer o Link do Planejamento (Canva) OU o Briefing interno detalhado.",
+        "warning"
+      );
       return;
     }
 
@@ -590,13 +601,15 @@ export function Demandas() {
   const submitLinkAndReview = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!promptLinkFor) {
+    if (!promptLinkFor || !deliveryLink.trim() || !deliveryDesc.trim()) {
+      showNotification("Informações ausentes", "Preencha o link e o que está sendo entregue.", "warning");
       return;
     }
 
-    updateDemandStatus(promptLinkFor, "Em Revisão", deliveryLink);
+    updateDemandStatus(promptLinkFor, "Em Revisão", { url: deliveryLink, description: deliveryDesc });
     setPromptLinkFor(null);
     setDeliveryLink("");
+    setDeliveryDesc("");
   };
 
   const cardsByStatus = (status: DemandStatus) => visibleDemands.filter((demand) => demand.status === status);
@@ -852,13 +865,12 @@ export function Demandas() {
                 <label className="grid gap-2">
                   <span className="flex items-center gap-2 text-sm font-bold text-carbon-200">
                     <CanvaMark className="size-5 text-assert-300" />
-                    Link do planejamento / roteiro
+                    Link do planejamento / roteiro (Opcional se houver briefing)
                   </span>
                   <input
                     className={fieldClass}
                     onChange={(event) => setNewPlanningLink(event.target.value)}
                     placeholder="https://www.canva.com/..."
-                    required
                     type="url"
                     value={newPlanningLink}
                   />
@@ -921,12 +933,11 @@ export function Demandas() {
               </div>
 
               <label className="grid gap-2">
-                <span className="text-sm font-bold text-carbon-200">Briefing interno</span>
+                <span className="text-sm font-bold text-carbon-200">Briefing interno (Obrigatório se não houver Canva)</span>
                 <textarea
                   className={cn(fieldClass, "min-h-28 py-3")}
                   onChange={(event) => setNewDesc(event.target.value)}
                   placeholder="Objetivo, formato, prioridade, observações de edição e pontos de atenção."
-                  required
                   value={newDesc}
                 />
               </label>
@@ -969,8 +980,17 @@ export function Demandas() {
 
             <input
               className={cn(fieldClass, "mt-5")}
+              onChange={(event) => setDeliveryDesc(event.target.value)}
+              placeholder="O que está sendo entregue? (ex: Vídeo 1 e 2)"
+              required
+              type="text"
+              value={deliveryDesc}
+            />
+
+            <input
+              className={cn(fieldClass, "mt-3")}
               onChange={(event) => setDeliveryLink(event.target.value)}
-              placeholder="https://..."
+              placeholder="https://... (Link da entrega)"
               required
               type="url"
               value={deliveryLink}
@@ -982,6 +1002,7 @@ export function Demandas() {
                 onClick={() => {
                   setPromptLinkFor(null);
                   setDeliveryLink("");
+                  setDeliveryDesc("");
                 }}
               >
                 Cancelar
@@ -1095,31 +1116,44 @@ export function Demandas() {
                 <div className="grid gap-3">
                   <h4 className="text-sm font-bold text-carbon-200">Arquivos e Links</h4>
                   <ResourceLink href={selectedDemand.dropboxLink} kind="dropbox" label="Vídeos no Dropbox" />
-                  <ResourceLink href={selectedDemand.planningLink} kind="canva" label="Planejamento / roteiro" />
+                  {selectedDemand.planningLink && (
+                    <ResourceLink href={selectedDemand.planningLink} kind="canva" label="Planejamento / roteiro" />
+                  )}
                   
-                  {selectedDemand.deliveryLink && (
+                  {selectedDemand.deliveries && selectedDemand.deliveries.length > 0 ? (
+                    <div className="mt-4 border-t border-carbon-800 pt-4">
+                      <h4 className="text-sm font-bold text-assert-300 mb-3 flex items-center gap-2">
+                        <CheckCircle2 className="size-4" /> Histórico de Entregas
+                      </h4>
+                      <div className="space-y-3">
+                        {selectedDemand.deliveries.map((delivery, i) => (
+                          <div key={delivery.id || i} className="rounded border border-carbon-800 bg-carbon-950/40 p-3">
+                            <p className="text-xs font-bold text-carbon-200 mb-1">{delivery.description}</p>
+                            <a href={delivery.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs font-semibold text-accent-300 hover:underline">
+                              <ExternalLink className="size-3" /> Acessar entrega
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : selectedDemand.deliveryLink ? (
                     <div className="mt-4 border-t border-carbon-800 pt-4">
                       <h4 className="text-sm font-bold text-assert-300 mb-3 flex items-center gap-2">
                         <CheckCircle2 className="size-4" /> Entrega
                       </h4>
-                      {selectedDemand.deliveryLink.match(/\.(jpeg|jpg|gif|png)$/i) ? (
-                        <img src={selectedDemand.deliveryLink} alt="Preview" className="w-full rounded-card border border-carbon-800 shadow-md" />
-                      ) : selectedDemand.deliveryLink.match(/\.(mp4|webm)$/i) ? (
-                        <video src={selectedDemand.deliveryLink} controls className="w-full rounded-card border border-carbon-800 shadow-md" />
-                      ) : (
-                        <a href={selectedDemand.deliveryLink} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-semibold text-accent-300 hover:underline">
-                          <ExternalLink className="size-4" /> Acessar Link de Entrega
-                        </a>
-                      )}
+                      <a href={selectedDemand.deliveryLink} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-semibold text-accent-300 hover:underline">
+                        <ExternalLink className="size-4" /> Acessar Link de Entrega
+                      </a>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               <div className="flex flex-col border-t border-carbon-800 lg:border-t-0 lg:border-l lg:pl-8 pt-6 lg:pt-0">
                 {isDemandInReview(selectedDemand) && selectedDemand.type === "Vídeo" && (user.role === "Admin" || user.role === "Organizador") ? (
-                  getReviewVideoUrl(selectedDemand) ? (
-                    <VideoReviewPlayer
+                  <>
+                    {getReviewVideoUrl(selectedDemand) ? (
+                      <VideoReviewPlayer
                       videoUrl={getReviewVideoUrl(selectedDemand)!}
                       comments={selectedDemand.comments || []}
                       demandId={selectedDemand.id}
@@ -1140,7 +1174,26 @@ export function Demandas() {
                     <div className="rounded-card border border-assert-300/30 bg-assert-500/10 p-5 text-sm text-assert-200">
                       Nenhum link de vídeo foi anexado a esta demanda. Envie o link de entrega ou Dropbox antes da revisão com minutagem.
                     </div>
-                  )
+                  )}
+                  {canApprove && (
+                    <div className="mt-4 flex gap-3 flex-wrap">
+                      <Button onClick={() => {
+                        updateDemandStatus(selectedDemand.id, "Concluído");
+                        setSelectedDemand(null);
+                        showNotification("Aprovado", "Demanda marcada como concluída.", "success");
+                      }} className="bg-assert-500 hover:bg-assert-400 text-carbon-950">
+                        <CheckCircle2 className="size-4 mr-2" /> Aprovar Demanda
+                      </Button>
+                      <Button variant="outline" onClick={() => {
+                        updateDemandStatus(selectedDemand.id, "Em Andamento");
+                        setSelectedDemand(null);
+                        showNotification("Aprovação Parcial", "Entregas atuais aprovadas. A demanda retornou para produção.", "info");
+                      }}>
+                        Aprovar Parcial (Voltar p/ Produção)
+                      </Button>
+                    </div>
+                  )}
+                  </>
                 ) : (
                   <>
                     <h4 className="text-sm font-bold text-carbon-200 mb-4 flex items-center gap-2">

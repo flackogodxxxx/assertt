@@ -17,6 +17,13 @@ const db = supabase as any;
 export type DemandStatus = "A Fazer" | "Em Andamento" | "Em Revisão" | "Concluído";
 export type DemandType = "Arte" | "Vídeo" | "Ambos";
 
+export interface DeliveryItem {
+  id: string;
+  url: string;
+  description: string;
+  createdAt: string;
+}
+
 export interface Comment {
   id: string;
   authorId: string;
@@ -55,6 +62,7 @@ export interface Demand {
   caption?: string;
   statusUpdatedAt?: string;
   videoUrl?: string; // used for QC review
+  deliveries?: DeliveryItem[];
 }
 
 interface DemandContextType {
@@ -62,8 +70,8 @@ interface DemandContextType {
   visibleDemands: Demand[];
   operationalDemands: Demand[];
   archivedDemands: Demand[];
-  addDemand: (demand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt">) => void;
-  updateDemandStatus: (id: string, status: DemandStatus, link?: string) => void;
+  addDemand: (demand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt" | "deliveries">) => void;
+  updateDemandStatus: (id: string, status: DemandStatus, delivery?: Omit<DeliveryItem, "id" | "createdAt">) => void;
   updateDemand: (id: string, updates: Partial<Demand>) => void;
   deleteDemand: (id: string) => Promise<boolean>;
   deleteDemandPermanently: (id: string) => Promise<boolean>;
@@ -304,14 +312,15 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     };
   }, [user?.id, syncDemands]);
 
-  const addDemand = (newDemand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt">) => {
+  const addDemand = (newDemand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt" | "deliveries">) => {
     const demand: Demand = {
       ...newDemand,
       id: `dem-${Date.now()}`,
       createdAt: new Date().toISOString(),
       status: "A Fazer",
       statusUpdatedAt: new Date().toISOString(),
-      comments: []
+      comments: [],
+      deliveries: []
     };
 
     setDemands((previousDemands) => {
@@ -356,18 +365,32 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateDemandStatus = (id: string, status: DemandStatus, link?: string) => {
+  const updateDemandStatus = (id: string, status: DemandStatus, delivery?: Omit<DeliveryItem, "id" | "createdAt">) => {
+    let newDeliveryItem: DeliveryItem | undefined;
+    if (delivery) {
+      newDeliveryItem = {
+        ...delivery,
+        id: `dlv-${Date.now()}`,
+        createdAt: new Date().toISOString()
+      };
+    }
+
     setDemands((previousDemands) => {
       const updatedDemands = previousDemands.map((demand) => {
         if (demand.id !== id) {
           return demand;
         }
 
+        const newDeliveries = newDeliveryItem 
+          ? [...(demand.deliveries || []), newDeliveryItem] 
+          : demand.deliveries;
+
         return { 
           ...demand, 
           status, 
           statusUpdatedAt: new Date().toISOString(),
-          ...(link ? { deliveryLink: link } : {}) 
+          ...(newDeliveryItem ? { deliveryLink: newDeliveryItem.url } : {}), // legacy fallback
+          deliveries: newDeliveries
         };
       });
 
@@ -376,11 +399,27 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     });
 
     if (remoteEnabled) {
+      const currentDemand = demands.find(d => d.id === id);
+      const newDeliveries = newDeliveryItem 
+        ? [...(currentDemand?.deliveries || []), newDeliveryItem] 
+        : currentDemand?.deliveries;
+
       db
         .from("production_tasks")
         .update({
-          ...(link ? { deliverable: link } : {}),
+          ...(delivery ? { deliverable: delivery.url } : {}),
           status: statusToTaskStatus(status),
+          checklist: {
+            caption: currentDemand?.caption,
+            comments: currentDemand?.comments,
+            description: currentDemand?.description,
+            dropboxLink: currentDemand?.dropboxLink,
+            pieceCount: currentDemand?.pieceCount ?? 1,
+            pieceInstructions: currentDemand?.pieceInstructions ?? [],
+            planningLink: currentDemand?.planningLink,
+            videoUrl: currentDemand?.videoUrl,
+            deliveries: newDeliveries
+          },
           updated_at: new Date().toISOString()
         })
         .eq("id", id)
@@ -414,7 +453,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             pieceCount: updates.pieceCount ?? currentDemand?.pieceCount ?? 1,
             pieceInstructions: updates.pieceInstructions ?? currentDemand?.pieceInstructions ?? [],
             planningLink: updates.planningLink ?? currentDemand?.planningLink,
-            videoUrl: updates.videoUrl ?? currentDemand?.videoUrl
+            videoUrl: updates.videoUrl ?? currentDemand?.videoUrl,
+            deliveries: updates.deliveries ?? currentDemand?.deliveries
           },
           ...(updates.deliveryLink ? { deliverable: updates.deliveryLink } : {}),
           ...(updates.deadline ? { due_date: updates.deadline.slice(0, 10) } : {}),
@@ -516,7 +556,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             planningLink: demand?.planningLink,
             pieceCount: demand?.pieceCount,
             pieceInstructions: demand?.pieceInstructions,
-            videoUrl: demand?.videoUrl
+            videoUrl: demand?.videoUrl,
+            deliveries: demand?.deliveries
           },
           updated_at: new Date().toISOString()
         })
