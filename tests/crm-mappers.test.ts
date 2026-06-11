@@ -14,8 +14,24 @@ const task: ProductionTaskRow = {
   assignee_id: "des-1",
   channel: "Instagram",
   checklist: {
+    comments: [{
+      authorId: "admin-1",
+      createdAt: "2026-06-10T12:00:00.000Z",
+      endTimestamp: "00:08.000",
+      id: "comment-1",
+      referenceImages: [{
+        id: "ref-1",
+        mimeType: "image/png",
+        name: "referencia.png",
+        path: "dem-1/comment-1/referencia.png"
+      }],
+      text: "Trocar a imagem",
+      timestamp: "00:04.000"
+    }],
     description: "Briefing detalhado",
     dropboxLink: "https://dropbox.example/brief",
+    pieceCount: 7,
+    pieceInstructions: ["Video 1", "Video 2"],
     planningLink: "https://canva.example/planning"
   },
   client_id: "cli-facta",
@@ -70,10 +86,17 @@ describe("crm mappers", () => {
       description: "Briefing detalhado",
       dropboxLink: "https://dropbox.example/brief",
       id: "dem-1",
+      pieceCount: 7,
+      pieceInstructions: ["Video 1", "Video 2"],
       planningLink: "https://canva.example/planning",
       status: "Em Revisão",
       title: "Reels institucional",
       type: "Vídeo"
+    });
+    expect(demand.comments?.[0]).toMatchObject({
+      endTimestamp: "00:08.000",
+      referenceImages: [{ name: "referencia.png" }],
+      timestamp: "00:04.000"
     });
   });
 
@@ -86,6 +109,8 @@ describe("crm mappers", () => {
         deadline: "2026-06-20T12:00:00.000Z",
         description: "Briefing detalhado",
         dropboxLink: "https://dropbox.example/brief",
+        pieceCount: 7,
+        pieceInstructions: ["Abertura", "Demonstracao"],
         planningLink: "https://canva.example/planning",
         title: "Campanha multiformato",
         type: "Ambos"
@@ -108,6 +133,8 @@ describe("crm mappers", () => {
     expect(inserts[0].checklist).toMatchObject({
       description: "Briefing detalhado",
       dropboxLink: "https://dropbox.example/brief",
+      pieceCount: 7,
+      pieceInstructions: ["Abertura", "Demonstracao"],
       planningLink: "https://canva.example/planning"
     });
   });

@@ -13,7 +13,10 @@ type TaskChecklist = {
   caption?: string;
   description?: string;
   dropboxLink?: string;
+  pieceCount?: number;
+  pieceInstructions?: string[];
   planningLink?: string;
+  videoUrl?: string;
 };
 
 const statusByDemand: Record<DemandStatus, string> = {
@@ -102,6 +105,8 @@ export function mapTaskRowToDemand(row: ProductionTaskRow, clientName: string): 
     dropboxLink: checklist.dropboxLink,
     id: row.id,
     planningLink: checklist.planningLink,
+    pieceCount: checklist.pieceCount || 1,
+    pieceInstructions: checklist.pieceInstructions || [],
     status: taskStatusToDemandStatus(row.status),
     statusUpdatedAt: row.updated_at,
     title: row.title,
@@ -123,6 +128,8 @@ export function mapDemandToTaskInserts(
     checklist: {
       description: demand.description,
       dropboxLink: demand.dropboxLink,
+      pieceCount: demand.pieceCount || 1,
+      pieceInstructions: demand.pieceInstructions || [],
       planningLink: demand.planningLink,
       caption: (demand as Demand).caption
     },

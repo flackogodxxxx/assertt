@@ -3,6 +3,11 @@ import { Brain, Sparkles, UploadCloud, Copy, RefreshCcw, CheckCircle2, AlertTria
 import { cn } from "../lib/cn";
 import { useAuth } from "../contexts/AuthContext";
 import { callGeminiJson, getDefaultGeminiModel } from "../lib/gemini";
+import {
+  buildCopyPrompt,
+  buildProofreadingPrompt,
+  buildTranscriptionPrompt
+} from "../lib/ia-prompts";
 
 type TabMode = 'legenda' | 'copy';
 type Platform = 'instagram' | 'tiktok';
@@ -14,7 +19,19 @@ interface GeminiResponse {
   hashtags?: string[];
   status?: string;
   extractedText?: string;
-  corrections?: string[];
+  corrections?: Array<
+    | string
+    | {
+        original: string;
+        suggestion: string;
+        category: string;
+        explanation: string;
+      }
+  >;
+  angle?: string;
+  warnings?: string[];
+  unreadableSegments?: string[];
+  uncertainSegments?: string[];
 }
 
 export function IaAssert() {
@@ -98,31 +115,14 @@ export function IaAssert() {
     const isImage = mimeType.startsWith("image/");
     
     if (activeTab === 'copy') {
-      return {
-        model: getDefaultGeminiModel(),
-        systemInstruction: "I want you to act as a viral Social Media Manager for a high-end agency.",
-        prompt: `Analyze the provided media. Write a caption for ${platform.toUpperCase()}.\n\nIF PLATFORM = TIKTOK:\n- Very short, punchy, curiosity-driven.\n- Max 2 paragraphs.\n- 3 highly targeted hashtags.\n\nIF PLATFORM = INSTAGRAM:\n- Engaging storytelling format.\n- Use bullet points if applicable.\n- Strong Call to Action (CTA).\n- 5 targeted hashtags.\n\n[CONSTRAINTS]\nDo not write explanations. Reply ONLY with valid JSON exactly in this format:\n{\n  "caption": "The full copy text with emojis",\n  "hashtags": ["#tag1", "#tag2"]\n}`
-      };
+      return { ...buildCopyPrompt(platform), model: getDefaultGeminiModel() };
     }
 
     if (isImage) {
-      return {
-        model: getDefaultGeminiModel(),
-        systemInstruction: "I want you to act as a strict Portuguese Language Proofreader (Revisor Ortográfico).",
-        prompt: "Step 1: Read all text visible in the image.\nStep 2: Analyze the text strictly for spelling, grammar, and agreement errors (ortografia e concordância) in Brazilian Portuguese.\nStep 3: If errors are found, list exactly where they are and how to fix them.\n\n[CONSTRAINTS]\nDo not write explanations about the design. Focus ONLY on the text correctness. Output strictly in JSON:\n{\n  \"status\": \"APPROVED\" | \"ERRORS_FOUND\",\n  \"extractedText\": \"...\",\n  \"corrections\": [\"Erro X -> Correto Y\"]\n}"
-      };
+      return { ...buildProofreadingPrompt(), model: getDefaultGeminiModel() };
     }
 
-    // Default Audio/Video Legenda
-    const model = getDefaultGeminiModel();
-    const hookInstruction = generateHooks ? "4. Generate 3 highly viral, click-bait (but honest) Hook titles based on the content." : "Do NOT generate hooks.";
-    const jsonExample = generateHooks ? `{\n  "transcription": "line1\\n\\nline2",\n  "hooks": ["hook1", "hook2", "hook3"]\n}` : `{\n  "transcription": "line1\\n\\nline2"\n}`;
-
-    return {
-      model,
-      systemInstruction: "I want you to act as an elite Video Editor and viral Copywriter. Your sole purpose is to transcribe audio verbatim and optionally write high-converting hooks.",
-      prompt: `1. Transcribe the provided audio precisely.\n2. Break the transcription into extremely short blocks (max 5-7 words per line) like TikTok/CapCut captions. Leave a blank line between blocks.\n3. Correct grammar without changing the meaning. Fix slangs ONLY for 'pra', 'cê', 'tá', 'tô'. Remove pure hesitation sounds ('uh', 'ah').\n${hookInstruction}\n\n[CONSTRAINTS]\nDo not write explanations. Output ONLY valid JSON in the exact format:\n${jsonExample}`
-    };
+    return { ...buildTranscriptionPrompt(generateHooks), model: getDefaultGeminiModel() };
   };
 
   const callIaAutomation = async (targetFile: File) => {
@@ -178,36 +178,41 @@ export function IaAssert() {
   };
 
   return (
-    <div className="flex h-full flex-col p-6 lg:p-10 animate-in fade-in zoom-in-95 duration-500">
-      <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+    <div className="mx-auto flex h-full w-full max-w-[92rem] flex-col p-4 sm:p-6 lg:p-8 animate-in fade-in duration-500">
+      <div className="mb-6 flex flex-col gap-5 border-b border-glass-stroke pb-5 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-carbon-50">
-            <Brain className="size-8 text-assert-400" />
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-carbon-500">Estação criativa</p>
+          <h1 className="mt-2 flex items-center gap-3 text-2xl font-black text-carbon-50 sm:text-3xl">
+            <Brain className="size-7 text-assert-400" />
             IA <span className="text-assert-400">ASSERT</span>
           </h1>
-          <p className="mt-2 text-carbon-300">
-            O cérebro criativo da agência. Legendas, copys e revisão impulsionados por IA.
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-carbon-300">
+            Transcrição fiel, revisão de português e copys adaptadas à linguagem de cada plataforma.
           </p>
         </div>
 
         {/* Tab Selector */}
         {!result && !isGenerating && (
-          <div className="flex rounded-full border border-glass-stroke bg-carbon-900/50 p-1">
+          <div aria-label="Modo da IA" className="flex rounded-card border border-glass-stroke bg-carbon-950/55 p-1" role="tablist">
             <button
+              aria-selected={activeTab === 'legenda'}
               onClick={() => setActiveTab('legenda')}
               className={cn(
-                "flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold transition-all",
+                "flex min-h-10 items-center gap-2 rounded px-4 text-sm font-bold transition-all",
                 activeTab === 'legenda' ? "bg-assert-400 text-carbon-950" : "text-carbon-400 hover:text-carbon-200"
               )}
+              role="tab"
             >
               <Type className="size-4" /> Legenda & Revisão
             </button>
             <button
+              aria-selected={activeTab === 'copy'}
               onClick={() => setActiveTab('copy')}
               className={cn(
-                "flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold transition-all",
+                "flex min-h-10 items-center gap-2 rounded px-4 text-sm font-bold transition-all",
                 activeTab === 'copy' ? "bg-assert-400 text-carbon-950" : "text-carbon-400 hover:text-carbon-200"
               )}
+              role="tab"
             >
               <MessageSquare className="size-4" /> Copywriter
             </button>
@@ -215,21 +220,23 @@ export function IaAssert() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-2">
+      <div className="flex-1 overflow-y-auto">
         {!result && !isGenerating && (
-          <div className="mx-auto max-w-3xl space-y-6">
+          <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
             
             {/* Options based on Tab */}
             {activeTab === 'legenda' && (
-              <div className="flex items-center justify-between rounded-2xl border border-glass-stroke bg-glass px-6 py-4">
+              <aside className="flex h-fit items-center justify-between rounded-card border border-glass-stroke bg-carbon-900/45 p-4 lg:block">
                 <div>
                   <h3 className="font-bold text-carbon-50">Gerar Hooks de Capa</h3>
-                  <p className="text-sm text-carbon-400">A IA vai sugerir 3 títulos virais além da legenda.</p>
+                  <p className="mt-1 text-sm leading-5 text-carbon-400">Cinco ângulos honestos e distintos baseados no conteúdo.</p>
                 </div>
                 <button 
+                  aria-label="Gerar hooks de capa"
+                  aria-pressed={generateHooks}
                   onClick={() => setGenerateHooks(!generateHooks)}
                   className={cn(
-                    "relative inline-flex h-7 w-12 items-center rounded-full transition-colors",
+                    "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors lg:mt-5",
                     generateHooks ? "bg-assert-400" : "bg-carbon-800"
                   )}
                 >
@@ -238,15 +245,17 @@ export function IaAssert() {
                     generateHooks ? "translate-x-6" : "translate-x-1"
                   )} />
                 </button>
-              </div>
+              </aside>
             )}
 
             {activeTab === 'copy' && (
-              <div className="flex gap-4">
+              <aside className="h-fit rounded-card border border-glass-stroke bg-carbon-900/45 p-4">
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-carbon-500">Plataforma</p>
+                <div className="grid gap-2">
                 <button
                   onClick={() => setPlatform('instagram')}
                   className={cn(
-                    "flex flex-1 items-center justify-center gap-3 rounded-2xl border p-4 transition-all",
+                    "flex min-h-12 items-center gap-3 rounded border px-4 transition-all",
                     platform === 'instagram' ? "border-assert-400 bg-assert-400/10 text-assert-400" : "border-glass-stroke bg-glass text-carbon-400 hover:text-carbon-200"
                   )}
                 >
@@ -256,14 +265,18 @@ export function IaAssert() {
                 <button
                   onClick={() => setPlatform('tiktok')}
                   className={cn(
-                    "flex flex-1 items-center justify-center gap-3 rounded-2xl border p-4 transition-all",
+                    "flex min-h-12 items-center gap-3 rounded border px-4 transition-all",
                     platform === 'tiktok' ? "border-assert-400 bg-assert-400/10 text-assert-400" : "border-glass-stroke bg-glass text-carbon-400 hover:text-carbon-200"
                   )}
                 >
                   <Video className="size-6" />
                   <span className="font-bold">TikTok</span>
                 </button>
-              </div>
+                </div>
+                <p className="mt-4 text-xs leading-5 text-carbon-500">
+                  A copy usa apenas informações verificáveis na mídia e evita promessas genéricas.
+                </p>
+              </aside>
             )}
 
             {/* Dropzone */}
@@ -272,12 +285,18 @@ export function IaAssert() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
+              aria-label="Enviar arquivo para a IA"
               className={cn(
-                "group relative flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-16 transition-all duration-300",
+                "group relative flex min-h-[28rem] cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed p-8 transition-all duration-300 sm:p-12",
                 isDragging 
                   ? "border-assert-400 bg-assert-400/5" 
                   : "border-carbon-800 bg-glass hover:border-carbon-700 hover:bg-carbon-900/50"
               )}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") fileInputRef.current?.click();
+              }}
             >
               <input
                 type="file"
@@ -287,12 +306,11 @@ export function IaAssert() {
                 accept={activeTab === 'copy' ? "image/*,video/*" : "image/*,video/*,audio/*"}
               />
               
-              <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-carbon-900 shadow-xl transition-transform group-hover:scale-110">
-                <div className="absolute inset-0 rounded-full bg-assert-400/20 blur-xl" />
-                {activeTab === 'legenda' ? <Type className="size-10 text-assert-400" /> : <MessageSquare className="size-10 text-assert-400" />}
+              <div className="mb-6 grid size-16 place-items-center rounded-card border border-assert-300/25 bg-assert-500/10 text-assert-300 transition-transform group-hover:scale-105">
+                <UploadCloud className="size-8" />
               </div>
 
-              <h3 className="mb-2 text-2xl font-bold text-carbon-50">
+              <h3 className="mb-2 text-center text-xl font-bold text-carbon-50 sm:text-2xl">
                 {activeTab === 'legenda' ? "Solte seu arquivo aqui" : "Solte sua arte ou vídeo"}
               </h3>
               <p className="max-w-md text-center text-carbon-400">
@@ -301,15 +319,15 @@ export function IaAssert() {
                   : "Arraste o material e deixe a IA criar a copy viral perfeita."}
               </p>
               
-              <div className="mt-8 flex gap-4 text-xs font-medium text-carbon-500">
-                <span className="flex items-center gap-1 rounded-full bg-carbon-900 px-3 py-1"><Video className="size-3" /> MP4/MP3</span>
-                <span className="flex items-center gap-1 rounded-full bg-carbon-900 px-3 py-1"><ImageIcon className="size-3" /> JPG/PNG</span>
-                <span className="flex items-center gap-1 rounded-full bg-carbon-900 px-3 py-1">Até 20MB</span>
+              <div className="mt-8 flex flex-wrap justify-center gap-2 text-xs font-medium text-carbon-500">
+                <span className="flex items-center gap-1 rounded border border-carbon-800 bg-carbon-900 px-3 py-1"><Video className="size-3" /> MP4/MP3</span>
+                <span className="flex items-center gap-1 rounded border border-carbon-800 bg-carbon-900 px-3 py-1"><ImageIcon className="size-3" /> JPG/PNG</span>
+                <span className="rounded border border-carbon-800 bg-carbon-900 px-3 py-1">Até 20MB</span>
               </div>
             </div>
 
             {error && (
-              <div className="flex items-center gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-400">
+              <div className="flex items-center gap-3 rounded-card border border-red-500/20 bg-red-500/10 p-4 text-red-400 lg:col-start-2" role="status">
                 <AlertTriangle className="size-5 shrink-0" />
                 <p className="text-sm">{error}</p>
               </div>
@@ -344,14 +362,14 @@ export function IaAssert() {
               
               {/* Hooks (If any) */}
               {result.hooks && result.hooks.length > 0 && (
-                <div className="md:col-span-12 flex flex-col gap-4 rounded-3xl border border-glass-stroke bg-glass p-8">
+                <div className="md:col-span-12 flex flex-col gap-4 rounded-card border border-glass-stroke bg-glass p-6">
                   <div className="flex items-center gap-3">
                     <Sparkles className="size-6 text-assert-400" />
                     <h3 className="text-xl font-bold text-carbon-50">Hooks Virais Recomendados</h3>
                   </div>
                   <div className="grid gap-4 md:grid-cols-3 mt-2">
                     {result.hooks.map((hook, i) => (
-                      <div key={i} className="group relative flex flex-col justify-between rounded-2xl bg-carbon-900/50 p-5 border border-carbon-800">
+                      <div key={i} className="group relative flex flex-col justify-between rounded-card bg-carbon-900/50 p-5 border border-carbon-800">
                         <p className="text-lg font-medium text-carbon-100">{hook}</p>
                         <button
                           onClick={() => handleCopy(hook, `hook-${i}`)}
@@ -367,7 +385,7 @@ export function IaAssert() {
 
               {/* Transcription */}
               {result.transcription && (
-                <div className="md:col-span-12 flex flex-col rounded-3xl border border-glass-stroke bg-glass">
+                <div className="md:col-span-12 flex flex-col rounded-card border border-glass-stroke bg-glass">
                   <div className="flex items-center justify-between border-b border-glass-stroke p-6">
                     <div className="flex items-center gap-3">
                       <Type className="size-6 text-assert-400" />
@@ -394,7 +412,7 @@ export function IaAssert() {
 
               {/* Copy & Hashtags */}
               {result.caption && (
-                <div className="md:col-span-8 flex flex-col rounded-3xl border border-glass-stroke bg-glass">
+                <div className="md:col-span-8 flex flex-col rounded-card border border-glass-stroke bg-glass">
                   <div className="flex items-center justify-between border-b border-glass-stroke p-6">
                     <div className="flex items-center gap-3">
                       <MessageSquare className="size-6 text-assert-400" />
@@ -416,7 +434,7 @@ export function IaAssert() {
               )}
 
               {result.hashtags && (
-                <div className="md:col-span-4 flex flex-col rounded-3xl border border-glass-stroke bg-glass">
+                <div className="md:col-span-4 flex flex-col rounded-card border border-glass-stroke bg-glass">
                   <div className="flex items-center justify-between border-b border-glass-stroke p-6">
                     <h3 className="text-lg font-bold text-carbon-50">Hashtags</h3>
                     <button
@@ -436,9 +454,33 @@ export function IaAssert() {
                 </div>
               )}
 
+              {(result.angle || result.warnings?.length || result.uncertainSegments?.length) && (
+                <div className="md:col-span-12 grid gap-4 rounded-card border border-glass-stroke bg-carbon-950/35 p-5 md:grid-cols-2">
+                  {result.angle && (
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-carbon-500">Ângulo estratégico</p>
+                      <p className="mt-2 text-sm leading-6 text-carbon-200">{result.angle}</p>
+                    </div>
+                  )}
+                  {(result.warnings?.length || result.uncertainSegments?.length) && (
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-carbon-500">Pontos de atenção</p>
+                      <ul className="mt-2 space-y-2 text-sm text-carbon-300">
+                        {[...(result.warnings || []), ...(result.uncertainSegments || [])].map((warning, index) => (
+                          <li className="flex gap-2" key={`${warning}-${index}`}>
+                            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-400" />
+                            {warning}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Spelling Corrections (Image) */}
-              {result.status && (
-                <div className="md:col-span-12 flex flex-col rounded-3xl border border-glass-stroke bg-glass">
+              {(result.extractedText || result.corrections || result.unreadableSegments) && (
+                <div className="md:col-span-12 flex flex-col rounded-card border border-glass-stroke bg-glass">
                   <div className="flex items-center justify-between border-b border-glass-stroke p-6">
                     <div className="flex items-center gap-3">
                       {result.status === "APPROVED" ? (
@@ -456,8 +498,21 @@ export function IaAssert() {
                       <div className="space-y-4">
                         <p className="text-lg text-amber-400 font-medium">Erros encontrados:</p>
                         <ul className="list-inside list-disc space-y-2 text-carbon-200">
-                          {result.corrections?.map((c, i) => (
-                            <li key={i}>{c}</li>
+                          {result.corrections?.map((correction, i) => (
+                            <li key={i}>
+                              {typeof correction === "string" ? (
+                                correction
+                              ) : (
+                                <span>
+                                  <strong className="text-carbon-50">{correction.original}</strong>
+                                  {" → "}
+                                  <strong className="text-signal-300">{correction.suggestion}</strong>
+                                  <span className="ml-2 text-carbon-400">
+                                    ({correction.category}) {correction.explanation}
+                                  </span>
+                                </span>
+                              )}
+                            </li>
                           ))}
                         </ul>
                       </div>

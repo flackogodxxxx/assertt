@@ -6,6 +6,7 @@ coverage/
 .env.*.local
 !.env.example
 .vite/
+.vercel/
 .npm-cache/
 diagnostics/
 *.tsbuildinfo

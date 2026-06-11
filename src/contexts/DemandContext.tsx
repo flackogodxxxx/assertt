@@ -3,6 +3,12 @@ import { USERS_DB, type User, useAuth } from "./AuthContext";
 import { appendNotificationEvent, type NotificationEvent, useNotification } from "./NotificationContext";
 import { getAllClients } from "../data/clients";
 import { mapDemandToTaskInserts, mapTaskRowToDemand, statusToTaskStatus } from "../lib/crm-mappers";
+import {
+  canPermanentlyDeleteDemand,
+  getArchivedDemands,
+  getOperationalDemands
+} from "../lib/demand-lifecycle";
+import { formatDemandScope } from "../lib/demand-scope";
 import { supabase } from "../lib/supabase";
 import type { ProductionTaskRow } from "../lib/supabase-types";
 
@@ -17,6 +23,16 @@ export interface Comment {
   text: string;
   createdAt: string;
   timestamp?: string; // e.g. "01:24" for video revisions
+  endTimestamp?: string;
+  referenceImages?: ReferenceImage[];
+}
+
+export interface ReferenceImage {
+  id: string;
+  mimeType: string;
+  name: string;
+  path: string;
+  signedUrl?: string;
 }
 
 export interface Demand {
@@ -33,6 +49,8 @@ export interface Demand {
   deliveryLink?: string;
   dropboxLink?: string;
   planningLink?: string;
+  pieceCount?: number;
+  pieceInstructions?: string[];
   comments?: Comment[];
   caption?: string;
   statusUpdatedAt?: string;
@@ -42,11 +60,20 @@ export interface Demand {
 interface DemandContextType {
   demands: Demand[];
   visibleDemands: Demand[];
+  operationalDemands: Demand[];
+  archivedDemands: Demand[];
   addDemand: (demand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt">) => void;
   updateDemandStatus: (id: string, status: DemandStatus, link?: string) => void;
   updateDemand: (id: string, updates: Partial<Demand>) => void;
-  deleteDemand: (id: string) => void;
-  addComment: (demandId: string, text: string, timestamp?: string) => void;
+  deleteDemand: (id: string) => Promise<boolean>;
+  deleteDemandPermanently: (id: string) => Promise<boolean>;
+  addComment: (
+    demandId: string,
+    text: string,
+    timestamp?: string,
+    endTimestamp?: string,
+    referenceImages?: ReferenceImage[]
+  ) => void;
 }
 
 const DEMANDS_STORAGE_KEY = "crm_demands";
@@ -154,7 +181,7 @@ function publishAssignmentNotifications(demand: Demand) {
     createdAt: new Date().toISOString(),
     deliveredTo: [],
     demandId: demand.id,
-    message: `${author} atribuiu ${demand.type.toLowerCase()} para ${demand.client}. A demanda já inclui Dropbox e planejamento.`,
+    message: `${author} atribuiu ${formatDemandScope(demand.pieceCount || 1, demand.type)} para ${demand.client}. A demanda já inclui Dropbox e planejamento.`,
     seenBy: [],
     targetUserIds: demand.assigneeIds,
     title: "Nova demanda atribuída",
@@ -170,9 +197,11 @@ export function DemandProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [remoteEnabled, setRemoteEnabled] = useState(false);
 
+  const operationalDemands = useMemo(() => getOperationalDemands(demands), [demands]);
+  const archivedDemands = useMemo(() => getArchivedDemands(demands), [demands]);
   const visibleDemands = useMemo(
-    () => demands.filter((demand) => canUserSeeDemand(demand, user)),
-    [demands, user]
+    () => operationalDemands.filter((demand) => canUserSeeDemand(demand, user)),
+    [operationalDemands, user]
   );
 
   const syncDemands = useCallback((incomingDemands: Demand[]) => {
@@ -291,7 +320,9 @@ export function DemandProvider({ children }: { children: ReactNode }) {
       return updatedDemands;
     });
 
-    publishAssignmentNotifications(demand);
+    if (!remoteEnabled) {
+      publishAssignmentNotifications(demand);
+    }
     showNotification("Demanda enviada", "O responsável recebeu a notificação e o admin já pode acompanhar.", "success");
 
     if (remoteEnabled) {
@@ -306,7 +337,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           }
 
           const notifications = (data || []).map((task: any) => ({
-            body: `Nova demanda atribuida: ${newDemand.title}`,
+            body: `Nova demanda atribuida: ${newDemand.title} (${formatDemandScope(newDemand.pieceCount || 1, newDemand.type)})`,
             task_id: task.id,
             target_user_id: task.assignee_id,
             title: "Nova demanda atribuida",
@@ -380,6 +411,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             comments: updates.comments ?? currentDemand?.comments,
             description: updates.description ?? currentDemand?.description,
             dropboxLink: updates.dropboxLink ?? currentDemand?.dropboxLink,
+            pieceCount: updates.pieceCount ?? currentDemand?.pieceCount ?? 1,
+            pieceInstructions: updates.pieceInstructions ?? currentDemand?.pieceInstructions ?? [],
             planningLink: updates.planningLink ?? currentDemand?.planningLink,
             videoUrl: updates.videoUrl ?? currentDemand?.videoUrl
           },
@@ -398,27 +431,45 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const deleteDemand = (id: string) => {
+  const deleteDemandPermanently = async (id: string) => {
+    const demand = demands.find((candidate) => candidate.id === id);
+
+    if (!demand || !canPermanentlyDeleteDemand(user, demand)) {
+      showNotification(
+        "Exclusao bloqueada",
+        "Somente administradores podem excluir demandas arquivadas.",
+        "warning"
+      );
+      return false;
+    }
+
+    if (remoteEnabled) {
+      const { error } = await db.rpc("delete_archived_demand", { demand_id: id });
+
+      if (error) {
+        showNotification("Nao foi possivel excluir", error.message, "warning");
+        return false;
+      }
+    }
+
     setDemands((previousDemands) => {
-      const updatedDemands = previousDemands.filter((demand) => demand.id !== id);
+      const updatedDemands = previousDemands.filter((candidate) => candidate.id !== id);
       persistDemands(updatedDemands);
       return updatedDemands;
     });
-
-    if (remoteEnabled) {
-      db
-        .from("production_tasks")
-        .delete()
-        .eq("id", id)
-        .then(({ error }: { error: Error | null }) => {
-          if (error) {
-            showNotification("Supabase indisponivel", error.message, "warning");
-          }
-        });
-    }
+    showNotification("Demanda excluida", "O item arquivado foi removido definitivamente.", "success");
+    return true;
   };
 
-  const addComment = (demandId: string, text: string, timestamp?: string) => {
+  const deleteDemand = deleteDemandPermanently;
+
+  const addComment = (
+    demandId: string,
+    text: string,
+    timestamp?: string,
+    endTimestamp?: string,
+    referenceImages?: ReferenceImage[]
+  ) => {
     if (!user) return;
     
     setDemands((previousDemands) => {
@@ -430,7 +481,9 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           authorId: user.id,
           text,
           createdAt: new Date().toISOString(),
-          timestamp
+          timestamp,
+          endTimestamp,
+          referenceImages
         };
         
         return { ...demand, comments: [...(demand.comments || []), newComment] };
@@ -447,7 +500,9 @@ export function DemandProvider({ children }: { children: ReactNode }) {
         authorId: user.id,
         text,
         createdAt: new Date().toISOString(),
-        timestamp
+        timestamp,
+        endTimestamp,
+        referenceImages
       };
 
       db
@@ -459,6 +514,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             description: demand?.description,
             dropboxLink: demand?.dropboxLink,
             planningLink: demand?.planningLink,
+            pieceCount: demand?.pieceCount,
+            pieceInstructions: demand?.pieceInstructions,
             videoUrl: demand?.videoUrl
           },
           updated_at: new Date().toISOString()
@@ -473,7 +530,20 @@ export function DemandProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DemandContext.Provider value={{ demands, visibleDemands, addDemand, updateDemandStatus, updateDemand, deleteDemand, addComment }}>
+    <DemandContext.Provider
+      value={{
+        addComment,
+        addDemand,
+        archivedDemands,
+        deleteDemand,
+        deleteDemandPermanently,
+        demands,
+        operationalDemands,
+        updateDemand,
+        updateDemandStatus,
+        visibleDemands
+      }}
+    >
       {children}
     </DemandContext.Provider>
   );

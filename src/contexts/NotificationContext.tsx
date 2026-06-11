@@ -1,8 +1,10 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Bell, CheckCircle2, X } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { notificationRowToEvent } from "../lib/crm-mappers";
+import { playNotificationTone, shouldAlertForNotification } from "../lib/notification-realtime";
 import { supabase } from "../lib/supabase";
+import type { NotificationRow } from "../lib/supabase-types";
 
 const db = supabase as any;
 
@@ -64,6 +66,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [events, setEvents] = useState<NotificationEvent[]>(getStoredNotificationEvents);
   const [remoteEnabled, setRemoteEnabled] = useState(false);
+  const alertedIdsRef = useRef(new Set<string>());
+  const audioContextRef = useRef<AudioContext | undefined>(undefined);
   const { user } = useAuth();
 
   const removeNotification = useCallback((id: string) => {
@@ -193,6 +197,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     let isMounted = true;
+    const unlockAudio = () => {
+      try {
+        const AudioContextClass =
+          window.AudioContext ||
+          (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+        if (!audioContextRef.current && AudioContextClass) {
+          audioContextRef.current = new AudioContextClass();
+        }
+
+        if (audioContextRef.current?.state === "suspended") {
+          void audioContextRef.current.resume();
+        }
+      } catch {
+        return;
+      }
+    };
 
     const processTargetedEvents = () => {
       if (remoteEnabled) {
@@ -236,9 +257,49 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       .channel("crm-notifications-context")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notifications" },
+        { event: "INSERT", schema: "public", table: "notifications" },
+        (payload) => {
+          const row = payload.new as NotificationRow;
+
+          if (
+            !shouldAlertForNotification(
+              {
+                id: row.id,
+                readAt: row.read_at,
+                targetUserId: row.target_user_id
+              },
+              user.id,
+              alertedIdsRef.current
+            )
+          ) {
+            return;
+          }
+
+          const event = notificationRowToEvent(row, [user.id]) as NotificationEvent;
+          alertedIdsRef.current.add(row.id);
+          setEvents((previousEvents) => {
+            if (previousEvents.some((candidate) => candidate.id === event.id)) {
+              return previousEvents;
+            }
+
+            return [event, ...previousEvents].slice(0, 100);
+          });
+          showNotification(event.title, event.message, event.type);
+          void playNotificationTone(audioContextRef.current);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications" },
         () => {
-          refreshRemoteEvents();
+          void refreshRemoteEvents();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "notifications" },
+        () => {
+          void refreshRemoteEvents();
         }
       )
       .subscribe();
@@ -251,12 +312,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("crm-notification-events", processTargetedEvents);
+    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    window.addEventListener("keydown", unlockAudio, { once: true });
 
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("crm-notification-events", processTargetedEvents);
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
     };
   }, [refreshRemoteEvents, remoteEnabled, showNotification, user]);
 

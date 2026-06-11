@@ -143,9 +143,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
     });
 
+    // Sync all avatars initially
+    db.from("profiles").select("email, avatar_url").then(({ data }: any) => {
+      if (data) {
+        data.forEach((p: any) => {
+          if (p.avatar_url && p.email) {
+            saveGlobalAvatar(p.email, p.avatar_url);
+          }
+        });
+      }
+    });
+
+    // Subscribe to real-time avatar updates
+    const channel = supabase.channel("crm-global-updates");
+    channel
+      .on("broadcast", { event: "avatar-update" }, (payload: any) => {
+        if (payload.payload?.email && payload.payload?.avatarBase64) {
+          saveGlobalAvatar(payload.payload.email, payload.payload.avatarBase64);
+        }
+      })
+      .subscribe();
+
+    // We attach channel to window so updateProfile can access it easily without useRef complexities inside closures
+    (window as any)._crmGlobalChannel = channel;
+
     return () => {
       isMounted = false;
       authListener.subscription.unsubscribe();
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -204,6 +229,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (updates.avatar) {
         saveGlobalAvatar(newUser.email, updates.avatar);
+        const channel = (window as any)._crmGlobalChannel;
+        if (channel) {
+          channel.send({
+            type: "broadcast",
+            event: "avatar-update",
+            payload: { email: newUser.email, avatarBase64: updates.avatar }
+          });
+        }
       }
 
       db
@@ -214,8 +247,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           status: updates.status,
           updated_at: new Date().toISOString()
         })
-        .eq("id", newUser.id)
-        .then(() => undefined);
+        .eq("email", newUser.email)
+        .then(({ error }: any) => {
+          if (error) {
+            console.error("Erro ao salvar perfil online:", error);
+          }
+        });
       
       // Emit event so other tabs sync user profile if needed
       window.dispatchEvent(new Event("crm-user-updated"));

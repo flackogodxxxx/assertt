@@ -15,8 +15,7 @@ import {
   UserRoundCheck,
   Search,
   Filter,
-  MessageSquare,
-  Trash2
+  MessageSquare
 } from "lucide-react";
 import { DropboxMark, CanvaMark } from "../components/brand-icons";
 import { Button } from "../components/ui/button";
@@ -25,8 +24,14 @@ import { type Demand, type DemandStatus, type DemandType, type Comment, useDeman
 import { useNotification } from "../contexts/NotificationContext";
 import { getAllClients } from "../data/clients";
 import { cn } from "../lib/cn";
+import { DemandReviewWorkspace } from "../components/DemandReviewWorkspace";
 import { VideoReviewPlayer } from "../components/VideoReviewPlayer";
 import { callGeminiJson, getDefaultGeminiModel } from "../lib/gemini";
+import {
+  buildPieceInstructions,
+  formatDemandScope,
+  normalizePieceCount
+} from "../lib/demand-scope";
 
 const columns: { id: DemandStatus; title: string; subtitle: string; tone: string }[] = [
   { id: "A Fazer", title: "Entrada", subtitle: "briefing recebido", tone: "text-carbon-150" },
@@ -107,6 +112,10 @@ function getReviewVideoUrl(demand: Demand) {
   return link;
 }
 
+function isDemandInReview(demand: Demand) {
+  return demand.status === "Em Revisão";
+}
+
 async function generateDemandCaption(demand: Demand) {
   return callGeminiJson<{ caption?: string; transcription?: string }>({
     model: getDefaultGeminiModel(),
@@ -142,15 +151,13 @@ function DemandCard({
   onClick: () => void;
 }) {
   const { user } = useAuth();
-  const { updateDemand, deleteDemand } = useDemands();
+  const { updateDemand } = useDemands();
   const { showNotification } = useNotification();
   const [isGenerating, setIsGenerating] = useState(false);
 
   const assignees = demand.assigneeIds
     .map((assigneeId) => USERS_DB.find((candidate) => candidate.id === assigneeId))
     .filter(Boolean);
-
-  const canDelete = user?.role === "Admin" || user?.role === "Organizador";
 
   return (
     <article
@@ -174,21 +181,6 @@ function DemandCard({
           {demand.type}
         </span>
         <div className="flex items-center gap-2">
-          {canDelete && (
-            <button
-              aria-label="Apagar demanda"
-              className="grid size-9 shrink-0 place-items-center rounded-card border border-signal-300/30 bg-signal-400/10 text-signal-300 transition-all duration-300 hover:scale-105 hover:bg-signal-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-300"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (confirm("Tem certeza que deseja excluir esta demanda?")) {
-                  deleteDemand(demand.id);
-                }
-              }}
-              type="button"
-            >
-              <Trash2 className="size-4" aria-hidden="true" />
-            </button>
-          )}
           {demand.deliveryLink && (
             <a
               aria-label="Abrir entrega"
@@ -209,6 +201,9 @@ function DemandCard({
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full border border-accent-300/28 bg-accent-400/10 px-3 py-1 text-xs font-bold text-accent-300">
+          {formatDemandScope(demand.pieceCount || 1, demand.type)}
+        </span>
         <span className="rounded-full border border-carbon-700/80 bg-carbon-900/60 px-3 py-1 text-xs font-bold text-carbon-200">
           {demand.client}
         </span>
@@ -362,8 +357,6 @@ function DemandCard({
 
 function MyTasksView({ demands, onStatusChange, onClick }: { demands: Demand[], onStatusChange: (id: string, s: DemandStatus) => void, onClick: (d: Demand) => void }) {
   const { user } = useAuth();
-  const { deleteDemand } = useDemands();
-  const canDelete = user?.role === "Admin" || user?.role === "Organizador";
   
   // Foca nas demandas não concluídas, priorizando as atribuídas ao usuário
   const myDemands = useMemo(() => {
@@ -400,26 +393,14 @@ function MyTasksView({ demands, onStatusChange, onClick }: { demands: Demand[], 
               {demand.status}
             </span>
             <div className="flex items-center gap-2">
-              {canDelete && (
-                <button
-                  aria-label="Apagar demanda"
-                  className="grid size-7 shrink-0 place-items-center rounded-card border border-signal-300/30 bg-signal-400/10 text-signal-300 transition-all duration-300 hover:scale-105 hover:bg-signal-400/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal-300"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm("Tem certeza que deseja excluir esta demanda?")) {
-                      deleteDemand(demand.id);
-                    }
-                  }}
-                  type="button"
-                >
-                  <Trash2 className="size-3" aria-hidden="true" />
-                </button>
-              )}
               {demand.deadline && <span className="text-[0.65rem] font-bold text-assert-300 bg-assert-500/10 px-2 py-1 rounded-sm">{formatDate(demand.deadline)}</span>}
             </div>
           </div>
           <h4 className="text-lg font-bold text-carbon-50 mb-1">{demand.title}</h4>
-          <p className="text-xs text-carbon-300 font-semibold mb-4">{demand.client}</p>
+          <p className="text-xs text-carbon-300 font-semibold">{demand.client}</p>
+          <p className="mt-2 mb-4 text-xs font-bold text-accent-300">
+            {formatDemandScope(demand.pieceCount || 1, demand.type)}
+          </p>
           
           <div className="mt-auto pt-4 flex gap-2">
             <button onClick={() => onClick(demand)} className="flex-1 bg-carbon-800 hover:bg-carbon-700 text-carbon-50 font-bold text-xs py-2 rounded border border-glass-stroke transition-all">Ver Detalhes</button>
@@ -441,7 +422,7 @@ export function Demandas() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { visibleDemands: allVisibleDemands, addDemand, updateDemandStatus, deleteDemand, addComment } = useDemands();
+  const { visibleDemands: allVisibleDemands, addDemand, updateDemandStatus, addComment } = useDemands();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
@@ -480,6 +461,8 @@ export function Demandas() {
   const [newDeadline, setNewDeadline] = useState("");
   const [newDropboxLink, setNewDropboxLink] = useState("");
   const [newPlanningLink, setNewPlanningLink] = useState("");
+  const [newPieceCount, setNewPieceCount] = useState(1);
+  const [newPieceInstructions, setNewPieceInstructions] = useState("");
   const [deliveryLink, setDeliveryLink] = useState("");
   const [promptLinkFor, setPromptLinkFor] = useState<string | null>(null);
   const [selectedDemand, setSelectedDemand] = useState<Demand | null>(null);
@@ -546,6 +529,8 @@ export function Demandas() {
     setNewDeadline("");
     setNewDropboxLink("");
     setNewPlanningLink("");
+    setNewPieceCount(1);
+    setNewPieceInstructions("");
   };
 
   const handleCreateDemand = (event: FormEvent<HTMLFormElement>) => {
@@ -575,6 +560,8 @@ export function Demandas() {
       description: newDesc,
       dropboxLink: newDropboxLink,
       planningLink: newPlanningLink,
+      pieceCount: normalizePieceCount(newPieceCount),
+      pieceInstructions: buildPieceInstructions(newPieceInstructions, newPieceCount),
       title: newTitle,
       type: newType
     });
@@ -878,6 +865,38 @@ export function Demandas() {
                 </label>
               </div>
 
+              <div className="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-carbon-200">Quantidade de peças</span>
+                  <input
+                    aria-describedby="piece-count-help"
+                    className={fieldClass}
+                    max={50}
+                    min={1}
+                    onChange={(event) => setNewPieceCount(normalizePieceCount(Number(event.target.value)))}
+                    required
+                    type="number"
+                    value={newPieceCount}
+                  />
+                  <span className="text-xs leading-5 text-carbon-500" id="piece-count-help">
+                    Esta demanda representa {formatDemandScope(newPieceCount, newType)}.
+                  </span>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-bold text-carbon-200">Orientação por peça</span>
+                  <textarea
+                    className={cn(fieldClass, "min-h-28 py-3")}
+                    onChange={(event) => setNewPieceInstructions(event.target.value)}
+                    placeholder={"Uma linha para cada peça, por exemplo:\nVídeo 1: apresentação\nVídeo 2: demonstração\nVídeo 3: CTA"}
+                    value={newPieceInstructions}
+                  />
+                  <span className="text-xs leading-5 text-carbon-500">
+                    As primeiras {normalizePieceCount(newPieceCount)} linhas serão numeradas para quem produzir.
+                  </span>
+                </label>
+              </div>
+
               <div className="rounded-card border border-glass-stroke bg-carbon-950/44 p-4">
                 <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-carbon-400">responsáveis calculados</p>
                 <div className="flex min-h-10 flex-wrap gap-2">
@@ -976,7 +995,56 @@ export function Demandas() {
         </div>
       )}
 
-      {selectedDemand && (
+      {selectedDemand?.status === "Em Revisão" && (
+        <DemandReviewWorkspace
+          currentUser={user}
+          demand={selectedDemand}
+          onAddComment={(text, timestamp, endTimestamp, referenceImages) => {
+            addComment(selectedDemand.id, text, timestamp, endTimestamp, referenceImages);
+            setSelectedDemand((previous) =>
+              previous
+                ? {
+                    ...previous,
+                    comments: [
+                      ...(previous.comments || []),
+                      {
+                        authorId: user.id,
+                        createdAt: new Date().toISOString(),
+                        id: `tmp-${Date.now()}`,
+                        text,
+                        timestamp,
+                        endTimestamp,
+                        referenceImages
+                      }
+                    ]
+                  }
+                : null
+            );
+          }}
+          onApprove={() => {
+            updateDemandStatus(selectedDemand.id, "Concluído");
+            setSelectedDemand(null);
+            showNotification(
+              "Demanda aprovada",
+              "A demanda foi arquivada no histórico do cliente.",
+              "success"
+            );
+          }}
+          onClose={() => setSelectedDemand(null)}
+          onRequestChanges={() => {
+            updateDemandStatus(selectedDemand.id, "Em Andamento");
+            setSelectedDemand(null);
+            showNotification(
+              "Correções enviadas",
+              "O responsável recebeu os ajustes e a demanda voltou para produção.",
+              "info"
+            );
+          }}
+          videoUrl={getReviewVideoUrl(selectedDemand)}
+        />
+      )}
+
+      {selectedDemand && selectedDemand.status !== "Em Revisão" && (
         <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-carbon-950/82 p-4 backdrop-blur-xl animate-in fade-in">
           <div className="crm-modal-panel relative my-6 w-full max-w-4xl rounded-[1.2rem] border border-glass-stroke bg-carbon-900/94 p-6 shadow-panel-deep backdrop-blur-2xl">
             <div className="absolute inset-x-8 top-0 h-px neon-divider" aria-hidden="true" />
@@ -989,21 +1057,6 @@ export function Demandas() {
                 <h3 className="mt-2 text-2xl font-bold text-carbon-50">{selectedDemand.title}</h3>
               </div>
               <div className="flex gap-2">
-                {canCreate && (
-                  <button
-                    className="rounded-card border border-signal-300/30 bg-signal-400/10 px-3 py-2 text-sm font-bold text-signal-300 transition-all duration-300 hover:bg-signal-400/20 focus-visible:outline-none"
-                    onClick={() => {
-                      if (confirm("Tem certeza que deseja excluir esta demanda?")) {
-                        deleteDemand(selectedDemand.id);
-                        setSelectedDemand(null);
-                      }
-                    }}
-                    type="button"
-                    title="Excluir demanda"
-                  >
-                    <Trash2 className="size-4" aria-hidden="true" />
-                  </button>
-                )}
                 <button
                   className="rounded-card border border-glass-stroke bg-carbon-950/48 px-3 py-2 text-sm font-bold text-carbon-250 transition-all duration-300 hover:bg-carbon-800 hover:text-carbon-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-300"
                   onClick={() => setSelectedDemand(null)}
@@ -1021,6 +1074,22 @@ export function Demandas() {
                   <p className="text-sm text-carbon-300 leading-relaxed bg-carbon-950/40 p-4 rounded-card border border-carbon-800">
                     {selectedDemand.description || "Nenhum briefing preenchido."}
                   </p>
+                </div>
+
+                <div>
+                  <h4 className="mb-2 text-sm font-bold text-carbon-200">
+                    Escopo: {formatDemandScope(selectedDemand.pieceCount || 1, selectedDemand.type)}
+                  </h4>
+                  <ol className="space-y-2 rounded-card border border-accent-300/20 bg-accent-400/5 p-4">
+                    {Array.from({ length: selectedDemand.pieceCount || 1 }, (_, index) => (
+                      <li className="flex gap-3 text-sm text-carbon-300" key={index}>
+                        <span className="grid size-6 shrink-0 place-items-center rounded bg-accent-400/12 text-xs font-bold text-accent-300">
+                          {index + 1}
+                        </span>
+                        <span>{selectedDemand.pieceInstructions?.[index] || `Peça ${index + 1}`}</span>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
 
                 <div className="grid gap-3">
@@ -1048,11 +1117,12 @@ export function Demandas() {
               </div>
 
               <div className="flex flex-col border-t border-carbon-800 lg:border-t-0 lg:border-l lg:pl-8 pt-6 lg:pt-0">
-                {selectedDemand.status === "Em Revisão" && selectedDemand.type === "Vídeo" && (user.role === "Admin" || user.role === "Organizador") ? (
+                {isDemandInReview(selectedDemand) && selectedDemand.type === "Vídeo" && (user.role === "Admin" || user.role === "Organizador") ? (
                   getReviewVideoUrl(selectedDemand) ? (
                     <VideoReviewPlayer
                       videoUrl={getReviewVideoUrl(selectedDemand)!}
                       comments={selectedDemand.comments || []}
+                      demandId={selectedDemand.id}
                       onAddComment={(text, timestamp) => {
                         addComment(selectedDemand.id, text, timestamp);
                         setSelectedDemand(prev => prev ? {
