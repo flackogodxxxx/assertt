@@ -134,7 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
 
         if (profile && isMounted) {
-          setUser(mapProfileToUser(profile));
+          const mappedUser = mapProfileToUser(profile);
+          setUser(mappedUser);
+          saveGlobalStatus(mappedUser.id, "ONLINE");
+          db.from("profiles").update({ status: "ONLINE", updated_at: new Date().toISOString() }).eq("email", mappedUser.email).then();
           setIsLoading(false);
           return;
         }
@@ -143,6 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const parsedLocalUser = parseStoredLocalAuthUser(localStorage.getItem("crm_user"));
       if (parsedLocalUser && isMounted) {
         setUser(parsedLocalUser);
+        saveGlobalStatus(parsedLocalUser.id, "ONLINE");
+        db.from("profiles").update({ status: "ONLINE", updated_at: new Date().toISOString() }).eq("email", parsedLocalUser.email).then();
       } else {
         localStorage.removeItem("crm_user");
         if (isMounted) {
@@ -171,7 +176,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
         .then(({ data: profile }: { data: any }) => {
           if (profile) {
-            setUser(mapProfileToUser(profile));
+            const mappedUser = mapProfileToUser(profile);
+            setUser(mappedUser);
+            saveGlobalStatus(mappedUser.id, "ONLINE");
+            db.from("profiles").update({ status: "ONLINE", updated_at: new Date().toISOString() }).eq("email", mappedUser.email).then();
           } else {
             setUser(null);
             localStorage.removeItem("crm_user");

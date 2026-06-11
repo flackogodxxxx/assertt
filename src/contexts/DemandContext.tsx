@@ -437,7 +437,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             planningLink: currentDemand?.planningLink,
             videoUrl: currentDemand?.videoUrl,
             deliveries: newDeliveries,
-            approvedPieces: currentDemand?.approvedPieces
+            approvedPieces: currentDemand?.approvedPieces,
+            assigneeIds: currentDemand?.assigneeIds
           },
           updated_at: new Date().toISOString()
         })
@@ -474,7 +475,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             planningLink: updates.planningLink ?? currentDemand?.planningLink,
             videoUrl: updates.videoUrl ?? currentDemand?.videoUrl,
             deliveries: updates.deliveries ?? currentDemand?.deliveries,
-            approvedPieces: updates.approvedPieces ?? currentDemand?.approvedPieces
+            approvedPieces: updates.approvedPieces ?? currentDemand?.approvedPieces,
+            assigneeIds: updates.assigneeIds ?? currentDemand?.assigneeIds
           },
           ...(updates.deliveryLink ? { deliverable: updates.deliveryLink } : {}),
           ...(updates.deadline ? { due_date: updates.deadline.slice(0, 10) } : {}),
@@ -581,7 +583,8 @@ export function DemandProvider({ children }: { children: ReactNode }) {
             pieceInstructions: demand?.pieceInstructions,
             videoUrl: demand?.videoUrl,
             deliveries: demand?.deliveries,
-            approvedPieces: demand?.approvedPieces
+            approvedPieces: demand?.approvedPieces,
+            assigneeIds: demand?.assigneeIds
           },
           updated_at: new Date().toISOString()
         })
