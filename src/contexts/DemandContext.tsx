@@ -106,7 +106,26 @@ export function canUserSeeDemand(demand: Demand, user: User | null) {
     return false;
   }
 
-  return user.role === "Admin" || user.role === "Organizador" || demand.assigneeIds.includes(user.id);
+  if (user.role === "Admin" || user.role === "Organizador") {
+    return true;
+  }
+
+  // Direct ID match
+  if (demand.assigneeIds.includes(user.id)) {
+    return true;
+  }
+
+  // Fallback: the user's Supabase profile ID may differ from USERS_DB IDs
+  // (e.g. profile.id is a UUID but assigneeIds use "des-1", "vid-1", etc.)
+  // Resolve the user's email to their USERS_DB ID and check that too.
+  const localUser = USERS_DB.find(
+    (u) => u.email.toLowerCase() === user.email.toLowerCase()
+  );
+  if (localUser && demand.assigneeIds.includes(localUser.id)) {
+    return true;
+  }
+
+  return false;
 }
 
 function getInitialDemands(): Demand[] {
@@ -175,6 +194,39 @@ async function ensureRemoteClientId(clientName: string, ownerId: string) {
   }
 
   return data.id;
+}
+
+/**
+ * Translate USERS_DB assignee IDs (e.g. "des-1") to their real Supabase
+ * profile IDs so that RLS policies on production_tasks can match them.
+ */
+async function resolveRemoteAssigneeIds(localIds: string[]): Promise<string[]> {
+  const emails = localIds
+    .map((id) => USERS_DB.find((u) => u.id === id)?.email)
+    .filter(Boolean) as string[];
+
+  if (!emails.length) {
+    return localIds;
+  }
+
+  const { data, error } = await db
+    .from("profiles")
+    .select("id, email")
+    .in("email", emails);
+
+  if (error || !data?.length) {
+    return localIds; // fallback to local IDs if query fails
+  }
+
+  const emailToProfileId = new Map<string, string>();
+  for (const profile of data as { id: string; email: string }[]) {
+    emailToProfileId.set(profile.email.toLowerCase(), profile.id);
+  }
+
+  return localIds.map((localId) => {
+    const email = USERS_DB.find((u) => u.id === localId)?.email?.toLowerCase();
+    return (email && emailToProfileId.get(email)) || localId;
+  });
 }
 
 async function fetchRemoteDemands() {
@@ -365,18 +417,26 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     showNotification("🚀 Nova missão na operação", "A demanda foi enviada para o responsável e já está no seu radar.", "success");
 
     if (remoteEnabled) {
-      ensureRemoteClientId(newDemand.client, newDemand.assigneeIds[0] || user?.id || "admin-1")
-        .then((clientId) => {
-          const inserts = mapDemandToTaskInserts(newDemand, clientId, demand.id);
+      Promise.all([
+        ensureRemoteClientId(newDemand.client, newDemand.assigneeIds[0] || user?.id || "admin-1"),
+        resolveRemoteAssigneeIds(newDemand.assigneeIds)
+      ])
+        .then(([clientId, remoteAssigneeIds]) => {
+          const demandWithRemoteIds = { ...newDemand, assigneeIds: remoteAssigneeIds };
+          const inserts = mapDemandToTaskInserts(demandWithRemoteIds, clientId, demand.id);
+          // Also set the primary assignee_id to the resolved Supabase profile ID
+          if (inserts.length && remoteAssigneeIds.length) {
+            inserts[0].assignee_id = remoteAssigneeIds[0];
+          }
           return db.from("production_tasks").insert(inserts).select("id, assignee_id");
         })
-        .then(({ data, error }) => {
+        .then(({ data, error }: any) => {
           if (error) {
             throw error;
           }
           return data;
         })
-        .catch((error) => {
+        .catch((error: unknown) => {
           showNotification("Supabase indisponivel", error instanceof Error ? error.message : "A demanda ficou salva localmente.", "warning");
         });
     }
