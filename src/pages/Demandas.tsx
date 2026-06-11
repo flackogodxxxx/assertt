@@ -940,8 +940,12 @@ export function Demandas() {
                         className="inline-flex items-center gap-2 rounded-full border border-accent-300/24 bg-accent-400/10 px-3 py-1.5 text-xs font-bold text-accent-300"
                         key={assignee!.id}
                       >
-                        <span className="grid size-6 place-items-center rounded-full bg-carbon-950 font-display text-[0.65rem] text-carbon-100">
-                          {initials(assignee!.name)}
+                        <span className="relative overflow-hidden grid size-6 place-items-center rounded-full bg-carbon-950 font-display text-[0.65rem] text-carbon-100">
+                          {getGlobalAvatar(assignee!.email) ? (
+                            <img src={getGlobalAvatar(assignee!.email)} alt={assignee!.name} className="absolute inset-0 h-full w-full object-cover" />
+                          ) : (
+                            <span>{initials(assignee!.name)}</span>
+                          )}
                         </span>
                         {assignee!.name}
                       </span>
