@@ -13,7 +13,7 @@ import {
 import type { User } from "../contexts/AuthContext";
 import type { Demand, ReferenceImage } from "../contexts/DemandContext";
 import { cn } from "../lib/cn";
-import { formatDemandScope } from "../lib/demand-scope";
+import { formatDemandScope, getDemandScopeLabel } from "../lib/demand-scope";
 import { VideoReviewPlayer } from "./VideoReviewPlayer";
 
 type DemandReviewWorkspaceProps = {
@@ -161,7 +161,7 @@ export function DemandReviewWorkspace({
                         {index + 1}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-carbon-200">Peça {index + 1}</p>
+                        <p className="text-xs font-bold text-carbon-200">{getDemandScopeLabel(demand.type, false).replace(/^\w/, c => c.toUpperCase())} {index + 1}</p>
                         <p className="mt-1 text-sm leading-5 text-carbon-400">
                           {demand.pieceInstructions?.[index] || "Sem orientação específica."}
                         </p>
@@ -216,7 +216,7 @@ export function DemandReviewWorkspace({
                       {Array.from({ length: demand.pieceCount || 1 }, (_, index) => (
                         <li className="flex gap-2 text-sm text-carbon-300" key={index}>
                           <span className="font-bold text-accent-300">{index + 1}.</span>
-                          <span>{demand.pieceInstructions?.[index] || `Peça ${index + 1}`}</span>
+                          <span>{demand.pieceInstructions?.[index] || `${getDemandScopeLabel(demand.type, false).replace(/^\w/, c => c.toUpperCase())} ${index + 1}`}</span>
                         </li>
                       ))}
                     </ol>

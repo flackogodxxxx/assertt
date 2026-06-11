@@ -13,13 +13,17 @@ export function buildPieceInstructions(value: string, pieceCount: number) {
     .slice(0, normalizePieceCount(pieceCount));
 }
 
-export function formatDemandScope(pieceCount: number, type: DemandType) {
-  const count = normalizePieceCount(pieceCount);
+export function getDemandScopeLabel(type: DemandType, plural = false) {
   const labels: Record<DemandType, [string, string]> = {
-    Ambos: ["peça", "peças"],
+    Ambos: ["vídeo/arte", "vídeos/artes"],
     Arte: ["arte", "artes"],
     Vídeo: ["vídeo", "vídeos"]
   };
-  const [singular, plural] = labels[type];
-  return `${count} ${count === 1 ? singular : plural}`;
+  return labels[type][plural ? 1 : 0];
+}
+
+export function formatDemandScope(pieceCount: number, type: DemandType) {
+  const count = normalizePieceCount(pieceCount);
+  const label = getDemandScopeLabel(type, count !== 1);
+  return `${count} ${label}`;
 }

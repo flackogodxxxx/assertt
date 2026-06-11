@@ -30,7 +30,8 @@ import { callGeminiJson, getDefaultGeminiModel } from "../lib/gemini";
 import {
   buildPieceInstructions,
   formatDemandScope,
-  normalizePieceCount
+  normalizePieceCount,
+  getDemandScopeLabel
 } from "../lib/demand-scope";
 
 const columns: { id: DemandStatus; title: string; subtitle: string; tone: string }[] = [
@@ -215,7 +216,7 @@ function DemandCard({
       </div>
 
       <div className="mt-4 grid gap-2">
-        <ResourceLink href={demand.dropboxLink} kind="dropbox" label="Vídeos no Dropbox" />
+        <ResourceLink href={demand.dropboxLink} kind="dropbox" label={`${getDemandScopeLabel(demand.type, true).replace(/^\w/, c => c.toUpperCase())} no Dropbox`} />
         <ResourceLink href={demand.planningLink} kind="canva" label="Planejamento / roteiro" />
       </div>
 
@@ -610,7 +611,9 @@ export function Demandas() {
     
     let finalDesc = deliveryDesc.trim();
     if (promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 && selectedPiecesForReview.length > 0) {
-      finalDesc = `Peça(s) entregue(s): ${selectedPiecesForReview.map(p => p + 1).join(", ")}`;
+      const scopeLabel = getDemandScopeLabel(promptDemandForReview.type, selectedPiecesForReview.length > 1);
+      const scopeLabelCapitalized = scopeLabel.charAt(0).toUpperCase() + scopeLabel.slice(1);
+      finalDesc = `${scopeLabelCapitalized} entregue(s): ${selectedPiecesForReview.map(p => p + 1).join(", ")}`;
       if (deliveryDesc.trim()) {
         finalDesc += ` - ${deliveryDesc.trim()}`;
       }
@@ -780,8 +783,8 @@ export function Demandas() {
                   ) : (
                     <div className="min-h-40 rounded-card border border-dashed border-carbon-800 bg-carbon-950/28 p-5 text-center">
                       <Sparkles className="mx-auto size-7 text-carbon-500" aria-hidden="true" />
-                      <p className="mt-4 text-sm font-bold text-carbon-300">Sem itens aqui</p>
-                      <p className="mt-1 text-xs leading-5 text-carbon-500">Quando houver movimento, ele aparece nesta coluna.</p>
+                      <p className="mt-4 text-sm font-bold text-carbon-300">Nenhuma demanda aqui</p>
+                      <p className="mt-1 text-xs leading-5 text-carbon-500">Quando houver novas demandas nesta etapa, elas aparecerão aqui.</p>
                     </div>
                   )}
                 </div>
@@ -897,7 +900,7 @@ export function Demandas() {
 
               <div className="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)]">
                 <label className="grid gap-2">
-                  <span className="text-sm font-bold text-carbon-200">Quantidade de peças</span>
+                  <span className="text-sm font-bold text-carbon-200">Quantidade de {getDemandScopeLabel(newType, true)}</span>
                   <input
                     aria-describedby="piece-count-help"
                     className={fieldClass}
@@ -914,11 +917,11 @@ export function Demandas() {
                 </label>
 
                 <label className="grid gap-2">
-                  <span className="text-sm font-bold text-carbon-200">Orientação por peça</span>
+                  <span className="text-sm font-bold text-carbon-200">Orientação por {getDemandScopeLabel(newType, false)}</span>
                   <textarea
                     className={cn(fieldClass, "min-h-28 py-3")}
                     onChange={(event) => setNewPieceInstructions(event.target.value)}
-                    placeholder={"Uma linha para cada peça, por exemplo:\nVídeo 1: apresentação\nVídeo 2: demonstração\nVídeo 3: CTA"}
+                    placeholder={`Uma linha para cada ${getDemandScopeLabel(newType, false)}, por exemplo:\n${getDemandScopeLabel(newType, false) === "arte" ? "Arte" : "Vídeo"} 1: apresentação\n${getDemandScopeLabel(newType, false) === "arte" ? "Arte" : "Vídeo"} 2: demonstração\n${getDemandScopeLabel(newType, false) === "arte" ? "Arte" : "Vídeo"} 3: CTA`}
                     value={newPieceInstructions}
                   />
                   <span className="text-xs leading-5 text-carbon-500">
@@ -998,7 +1001,7 @@ export function Demandas() {
 
             {promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 && (
               <div className="mt-5 space-y-2">
-                <p className="text-sm font-bold text-carbon-200">Quais peças estão sendo entregues?</p>
+                <p className="text-sm font-bold text-carbon-200">Quais {getDemandScopeLabel(promptDemandForReview.type, true)} estão sendo entregues?</p>
                 <div className="grid gap-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                   {Array.from({ length: promptDemandForReview.pieceCount }).map((_, i) => {
                     const alreadyDelivered = promptDemandForReview.deliveries?.some(d => d.pieces?.includes(i));
@@ -1018,7 +1021,7 @@ export function Demandas() {
                           className="accent-accent-400 size-4 rounded bg-carbon-950 border-carbon-800"
                         />
                         <span className="text-sm font-medium text-carbon-200">
-                          {promptDemandForReview.type === "Vídeo" ? "Vídeo" : "Arte"} {i + 1} {promptDemandForReview.pieceInstructions?.[i] ? `- ${promptDemandForReview.pieceInstructions[i]}` : ''}
+                          {getDemandScopeLabel(promptDemandForReview.type, false).replace(/^\w/, c => c.toUpperCase())} {i + 1} {promptDemandForReview.pieceInstructions?.[i] ? `- ${promptDemandForReview.pieceInstructions[i]}` : ''}
                           {alreadyDelivered && " (Já entregue)"}
                         </span>
                       </label>
@@ -1031,7 +1034,7 @@ export function Demandas() {
             <input
               className={cn(fieldClass, "mt-5")}
               onChange={(event) => setDeliveryDesc(event.target.value)}
-              placeholder={promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 ? "Observações (opcional)" : "O que está sendo entregue? (ex: Vídeo 1 e 2)"}
+              placeholder={promptDemandForReview.pieceCount && promptDemandForReview.pieceCount > 1 ? "Observações (opcional)" : `O que está sendo entregue? (ex: ${getDemandScopeLabel(promptDemandForReview.type, false).replace(/^\w/, c => c.toUpperCase())} 1 e 2)`}
               required={!promptDemandForReview.pieceCount || promptDemandForReview.pieceCount <= 1}
               type="text"
               value={deliveryDesc}
@@ -1159,7 +1162,7 @@ export function Demandas() {
                         <span className="grid size-6 shrink-0 place-items-center rounded bg-accent-400/12 text-xs font-bold text-accent-300">
                           {index + 1}
                         </span>
-                        <span>{selectedDemand.pieceInstructions?.[index] || `Peça ${index + 1}`}</span>
+                        <span>{selectedDemand.pieceInstructions?.[index] || `${getDemandScopeLabel(selectedDemand.type, false).replace(/^\w/, c => c.toUpperCase())} ${index + 1}`}</span>
                       </li>
                     ))}
                   </ol>
@@ -1167,7 +1170,7 @@ export function Demandas() {
 
                 <div className="grid gap-3">
                   <h4 className="text-sm font-bold text-carbon-200">Arquivos e Links</h4>
-                  <ResourceLink href={selectedDemand.dropboxLink} kind="dropbox" label="Vídeos no Dropbox" />
+                  <ResourceLink href={selectedDemand.dropboxLink} kind="dropbox" label={`${getDemandScopeLabel(selectedDemand.type, true).replace(/^\w/, c => c.toUpperCase())} no Dropbox`} />
                   {selectedDemand.planningLink && (
                     <ResourceLink href={selectedDemand.planningLink} kind="canva" label="Planejamento / roteiro" />
                   )}
