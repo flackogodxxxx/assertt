@@ -467,6 +467,7 @@ export function Demandas() {
   const [newPieceCount, setNewPieceCount] = useState(1);
   const [newPieceInstructions, setNewPieceInstructions] = useState("");
   const [deliveryLink, setDeliveryLink] = useState("");
+  const [deliveryPieceLinks, setDeliveryPieceLinks] = useState<Record<number, string>>({});
   const [deliveryDesc, setDeliveryDesc] = useState("");
   const [promptDemandForReview, setPromptDemandForReview] = useState<Demand | null>(null);
   const [selectedPiecesForReview, setSelectedPiecesForReview] = useState<number[]>([]);
@@ -605,8 +606,18 @@ export function Demandas() {
   const submitLinkAndReview = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!promptDemandForReview || !deliveryLink.trim()) {
-      showNotification("Informações ausentes", "Preencha o link da entrega.", "warning");
+    if (!promptDemandForReview) return;
+    
+    // Require a general link ONLY if no specific pieces are selected
+    if (selectedPiecesForReview.length === 0 && !deliveryLink.trim()) {
+      showNotification("Informações ausentes", "Preencha o link geral da entrega.", "warning");
+      return;
+    }
+    
+    // Check if any selected piece is missing its specific link
+    const missingPieceLink = selectedPiecesForReview.some(p => !deliveryPieceLinks[p]?.trim());
+    if (missingPieceLink) {
+      showNotification("Informações ausentes", "Preencha o link para cada vídeo selecionado.", "warning");
       return;
     }
     
@@ -625,11 +636,13 @@ export function Demandas() {
 
     updateDemandStatus(promptDemandForReview.id, "Em Revisão", { 
       url: deliveryLink, 
+      pieceLinks: deliveryPieceLinks,
       description: finalDesc,
       pieces: selectedPiecesForReview 
     });
     setPromptDemandForReview(null);
     setDeliveryLink("");
+    setDeliveryPieceLinks({});
     setDeliveryDesc("");
     setSelectedPiecesForReview([]);
   };
@@ -1091,12 +1104,33 @@ export function Demandas() {
                 <input
                   className={cn(fieldClass, "pl-11 border-carbon-800 bg-carbon-950/50 focus:bg-carbon-900/80")}
                   onChange={(event) => setDeliveryLink(event.target.value)}
-                  placeholder="https://... (Link Frame.io, Drive, etc)"
-                  required
+                  placeholder={selectedPiecesForReview.length > 0 ? "Link geral (Opcional - Pasta Drive, Dropbox, etc)" : "https://... (Link Frame.io, Drive, etc)"}
+                  required={selectedPiecesForReview.length === 0}
                   type="url"
                   value={deliveryLink}
                 />
               </div>
+
+              {selectedPiecesForReview.length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <h5 className="text-sm font-bold text-carbon-200">Links Individuais</h5>
+                  {selectedPiecesForReview.map((pieceIndex) => (
+                    <div key={`piece-link-${pieceIndex}`} className="relative group">
+                      <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-carbon-500 group-focus-within:text-assert-400 transition-colors">
+                        <LinkIcon className="size-4" />
+                      </div>
+                      <input
+                        className={cn(fieldClass, "pl-11 border-carbon-800 bg-carbon-950/50 focus:bg-carbon-900/80")}
+                        onChange={(event) => setDeliveryPieceLinks(prev => ({ ...prev, [pieceIndex]: event.target.value }))}
+                        placeholder={`Link para o ${getDemandScopeLabel(promptDemandForReview.type, false).replace(/^\w/, c => c.toUpperCase())} ${pieceIndex + 1}`}
+                        required
+                        type="url"
+                        value={deliveryPieceLinks[pieceIndex] || ""}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -1185,6 +1219,13 @@ export function Demandas() {
               "info"
             );
           }}
+          onDeliverMore={
+            selectedDemand.pieceCount && 
+            selectedDemand.pieceCount > 1 && 
+            ((selectedDemand.approvedPieces?.length || 0) + (selectedDemand.deliveries?.[selectedDemand.deliveries.length - 1]?.pieces?.length || 0)) < selectedDemand.pieceCount
+              ? () => setPromptDemandForReview(selectedDemand)
+              : undefined
+          }
           videoUrl={getReviewVideoUrl(selectedDemand)}
         />
       )}

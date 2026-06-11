@@ -19,7 +19,8 @@ export type DemandType = "Arte" | "Vídeo" | "Ambos";
 
 export interface DeliveryItem {
   id: string;
-  url: string;
+  url: string; // Keep as fallback/general link
+  pieceLinks?: Record<number, string>; // Specific link for each piece
   description: string;
   pieces?: number[];
   createdAt: string;

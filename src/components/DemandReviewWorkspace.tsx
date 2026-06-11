@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileText,
   MessageSquare,
+  Plus,
   RotateCcw,
   X
 } from "lucide-react";
@@ -29,6 +30,7 @@ type DemandReviewWorkspaceProps = {
   onApprove: () => void;
   onClose: () => void;
   onRequestChanges: () => void;
+  onDeliverMore?: () => void;
   videoUrl?: string;
 };
 
@@ -48,6 +50,7 @@ export function DemandReviewWorkspace({
   onApprove,
   onClose,
   onRequestChanges,
+  onDeliverMore,
   videoUrl
 }: DemandReviewWorkspaceProps) {
   const [contextOpen, setContextOpen] = useState(false);
@@ -61,6 +64,8 @@ export function DemandReviewWorkspace({
   const activeComments = demand.comments?.filter(c => c.pieceIndex === activePieceIndex || c.pieceIndex === undefined) || [];
   const hasCorrections = Boolean(activeComments.length);
   const hasCorrectionsInAnyPiece = Boolean(demand.comments?.length);
+
+  const activeVideoUrl = latestDelivery?.pieceLinks?.[activePieceIndex] || videoUrl || demand.deliveryLink;
 
   const workspace = (
     <div
@@ -125,7 +130,7 @@ export function DemandReviewWorkspace({
             )}
             
             <div className="flex flex-1 items-center justify-center rounded-[0.6rem] border border-carbon-800 bg-black/35 p-3">
-              {demand.type === "Vídeo" && videoUrl ? (
+              {demand.type === "Vídeo" && activeVideoUrl ? (
                 <VideoReviewPlayer
                   comments={activeComments}
                   demandId={demand.id}
@@ -133,7 +138,7 @@ export function DemandReviewWorkspace({
                     onAddComment(text, timestamp, endTimestamp, referenceImages, activePieceIndex)
                   }
                   showSubmitAction={false}
-                  videoUrl={videoUrl}
+                  videoUrl={activeVideoUrl}
                 />
               ) : isImage ? (
                 <img
@@ -141,10 +146,10 @@ export function DemandReviewWorkspace({
                   className="max-h-[68vh] max-w-full object-contain"
                   src={demand.deliveryLink}
                 />
-              ) : demand.deliveryLink ? (
+              ) : activeVideoUrl ? (
                 <a
                   className="inline-flex items-center gap-2 rounded-card border border-accent-300/30 bg-accent-400/10 px-5 py-3 font-bold text-accent-300 hover:bg-accent-400/15"
-                  href={demand.deliveryLink}
+                  href={activeVideoUrl}
                   rel="noreferrer"
                   target="_blank"
                 >
@@ -286,6 +291,19 @@ export function DemandReviewWorkspace({
                 </div>
               )}
             </div>
+
+            {onDeliverMore && (
+              <div className="p-5 border-t border-glass-stroke mt-auto">
+                <button
+                  onClick={onDeliverMore}
+                  className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-card border border-carbon-700 bg-carbon-800 px-5 text-sm font-bold text-carbon-200 transition hover:bg-carbon-700 hover:text-carbon-50"
+                  type="button"
+                >
+                  <Plus className="size-4" />
+                  Entregar mais vídeos
+                </button>
+              </div>
+            )}
           </aside>
         </div>
 
