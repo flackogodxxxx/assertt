@@ -255,7 +255,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     async function loadRemote() {
-      if (!user || !(await hasRemoteSession())) {
+      if (!user) {
         setRemoteEnabled(false);
         return;
       }
@@ -309,7 +309,6 @@ export function DemandProvider({ children }: { children: ReactNode }) {
 
     const refreshRemoteDemands = async () => {
       try {
-        if (!(await hasRemoteSession())) return;
         const remoteDemands = await fetchRemoteDemands();
         syncDemandsRef.current(remoteDemands);
       } catch {
