@@ -19,7 +19,7 @@ excluded from the architecture.
 - Add demand tabs: Summary, Pieces, Deliveries, QC, and Activity.
 - Add a notification center with connection status.
 - Add a review inbox for Admin and Organizer roles.
-- Make AI available inside demands and client profiles.
+- Make the existing IA Assert available from demand and client contexts.
 - Turn the client profile into an operational hub.
 - Show real team capacity without simulated presence.
 - Add a command palette for clients and demands.
@@ -138,7 +138,7 @@ The Summary tab contains:
 - Current owners and reviewer.
 - Due date, priority, channel, and demand type.
 - Blocker or pending-information state.
-- AI action to analyze and structure the briefing.
+- Shortcut to IA Assert with the demand context prefilled.
 
 ### Pieces Tab
 
@@ -256,28 +256,12 @@ The client profile becomes the central account workspace.
 - Reviews.
 - Archived deliveries.
 - Activity history.
-- AI profile.
+- IA Assert shortcut using the selected client and demand context.
 - Operational links and references.
 
-### Client AI Profile
+## Contextual IA Assert
 
-The client AI profile stores editable, approved context:
-
-- Audience.
-- Tone of voice.
-- Products and services.
-- Preferred calls to action.
-- Restricted words and claims.
-- Brand differentiators.
-- Approved examples.
-- General content notes.
-
-AI calls for that client receive this profile as trusted application context.
-Media, briefs, and user-entered content remain untrusted data.
-
-## Contextual AI
-
-### Demand AI
+### Demand IA Assert Context
 
 Available actions:
 
@@ -288,33 +272,24 @@ Available actions:
 - Summarize the latest corrections.
 - Compare current and previous submission notes.
 
-Generated content is shown as a draft. Saving it to the demand always requires
-a user action.
+The demand opens IA Assert with its client, title, type, briefing, piece scope,
+links, and latest corrections prefilled. Generated content remains a draft.
+Saving it to the demand always requires a user action.
 
-### Client AI
+### Client IA Assert Context
 
 Available actions:
 
-- Generate copy using the client AI profile.
+- Generate copy using the selected client's current operational context.
 - Propose content angles.
 - Summarize recent production history.
 - Identify recurring correction themes.
-- Prepare a reusable briefing from approved client context.
+- Prepare a reusable briefing from the client's operational history.
 
-### AI Backend
-
-Gemini calls move from the browser to a Supabase Edge Function:
-
-- The Gemini API key is stored as an Edge Function secret.
-- The function validates the Supabase JWT and user role.
-- Input size and MIME type are validated.
-- Requests use JSON Schema structured output.
-- Each execution is logged in `ai_runs`.
-- Prompts clearly separate trusted application instructions from untrusted
-  user and media content.
-- Rate limits are applied per user.
-
-The exposed `VITE_GEMINI_API_KEY` is removed and the current key is rotated.
+This phase does not create `client_ai_profiles` or `ai_runs`. IA Assert keeps
+its current direct Gemini integration and does not persist prompt execution
+history, model cost, output evaluation, audience, voice, offers, or
+restrictions as new database entities.
 
 ## Command Palette
 
@@ -567,34 +542,6 @@ Important payloads include:
 - Block: category, reason, whether SLA is paused.
 - SLA event: stage, target, elapsed duration, and severity.
 
-#### `client_ai_profiles`
-
-- `client_id text`
-- `audience text`
-- `tone_of_voice text`
-- `products jsonb`
-- `preferred_ctas jsonb`
-- `restricted_claims jsonb`
-- `approved_examples jsonb`
-- `notes text`
-- `updated_by text`
-- `updated_at timestamptz`
-
-#### `ai_runs`
-
-- `id uuid`
-- `user_id text`
-- `client_id text`
-- `task_id text`
-- `action text`
-- `model text`
-- `prompt_version text`
-- `status text`
-- `input_metadata jsonb`
-- `output jsonb`
-- `error text`
-- `created_at timestamptz`
-
 #### `notification_preferences`
 
 - `user_id text`
@@ -660,9 +607,6 @@ RLS must enforce the same access model as the UI:
 - Blocking requires an allowed role, a non-empty reason, and an activity event.
 - Reassignment requires Admin or Organizer role and a non-empty reason.
 - Users can read only their own targeted notifications.
-- Client AI profiles are readable by authorized team members and writable only
-  by Admin and Organizer.
-- AI execution rows are visible to the requester and Admin.
 - Profiles are no longer publicly readable without authentication.
 
 Role checks use the profile linked to `auth.uid()`. Browser code never receives
@@ -688,7 +632,6 @@ repositories and hooks. Route-level code splitting is added for CRM pages.
 
 ### Phase 1: Reliability And Security
 
-- Move Gemini behind an Edge Function and rotate the exposed key.
 - Tighten RLS.
 - Implement resilient realtime and notification permission controls.
 - Remove simulated presence.
@@ -719,11 +662,9 @@ repositories and hooks. Route-level code splitting is added for CRM pages.
 - Expand client profile into the operational hub.
 - Add real capacity calculations.
 
-### Phase 5: Contextual AI And Deadline Automation
+### Phase 5: IA Assert Context And Deadline Automation
 
-- Add client AI profiles.
-- Add demand/client AI actions.
-- Add AI execution audit.
+- Add demand/client shortcuts that prefill IA Assert.
 - Add idempotent deadline alerts.
 - Complete archive and audit views.
 
@@ -784,8 +725,8 @@ repositories and hooks. Route-level code splitting is added for CRM pages.
 - Client profiles show active work, reviews, archive, activity, and AI context.
 - Team capacity uses real workload and presence contains no simulated users.
 - `Ctrl+K` or `Cmd+K` locates authorized clients and demands.
-- AI is available inside client and demand contexts without exposing its API
-  key in the browser.
+- IA Assert is reachable from client and demand contexts with relevant
+  operational fields prefilled.
 - Archived demands remain searchable and auditable.
 - The canonical workflow supports Draft, Planned, In production, In review,
   Adjustments, Approved, Delivered/Archived, and Blocked.
