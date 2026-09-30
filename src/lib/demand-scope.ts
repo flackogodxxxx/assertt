@@ -15,7 +15,7 @@ export function buildPieceInstructions(value: string, pieceCount: number) {
 
 export function getDemandScopeLabel(type: DemandType, plural = false) {
   const labels: Record<DemandType, [string, string]> = {
-    Ambos: ["vídeo/arte", "vídeos/artes"],
+    Ambos: ["peça", "peças"],
     Arte: ["arte", "artes"],
     Vídeo: ["vídeo", "vídeos"]
   };

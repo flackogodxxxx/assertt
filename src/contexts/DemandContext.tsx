@@ -291,7 +291,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
   }, [remoteEnabled, user, syncDemands]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !remoteEnabled) return;
 
     const channelName = `crm-production-tasks-${Date.now()}`;
     const channel = supabase
@@ -315,7 +315,7 @@ export function DemandProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, syncDemands]);
+  }, [remoteEnabled, user?.id, syncDemands]);
 
   const addDemand = (newDemand: Omit<Demand, "id" | "createdAt" | "status" | "comments" | "statusUpdatedAt" | "deliveries">) => {
     const demand: Demand = {
@@ -359,7 +359,11 @@ export function DemandProvider({ children }: { children: ReactNode }) {
           }));
 
           if (notifications.length) {
-            return db.from("notifications").insert(notifications);
+            return db.from("notifications").insert(notifications).then(({ error }: { error: Error | null }) => {
+              if (error) {
+                throw error;
+              }
+            });
           }
 
           return undefined;
