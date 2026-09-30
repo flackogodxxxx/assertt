@@ -10,6 +10,7 @@ import { PresenceProvider } from "./contexts/PresenceContext";
 import { CrmLayout } from "./layouts/CrmLayout";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
+import { Prioridades } from "./pages/Prioridades";
 import { Demandas } from "./pages/Demandas";
 import { Clientes } from "./pages/Clientes";
 import { ClientProfile } from "./pages/ClientProfile";
@@ -56,6 +57,7 @@ createRoot(rootElement).render(
                 <Route path="/crm" element={<ProtectedRoute />}>
                   <Route element={<CrmLayout />}>
                     <Route index element={<Dashboard />} />
+                    <Route path="prioridades" element={<Prioridades />} />
                     <Route path="demandas" element={<Demandas />} />
                     <Route path="clientes" element={<Clientes />} />
                     <Route path="clientes/:clientName" element={<ClientProfile />} />

@@ -9,6 +9,7 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  ListChecks,
   Search,
   Settings,
   Users,
@@ -34,6 +35,7 @@ type CrmLink = {
 
 const links: CrmLink[] = [
   { label: "Dashboard", href: "/crm", icon: LayoutDashboard, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
+  { label: "Prioridades", href: "/crm/prioridades", icon: ListChecks, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Equipe", href: "/crm/equipe", icon: Users, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Clientes", href: "/crm/clientes", icon: Briefcase, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
   { label: "Calendário", href: "/crm/calendario", icon: CalendarDays, roles: ["Admin", "Organizador", "Video Maker", "Designer"] },
